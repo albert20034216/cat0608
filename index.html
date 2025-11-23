@@ -18,6 +18,10 @@
             --site-color-1: #ffb6c1; /* 主色：粉色 */
             --site-color-2: #add8e6; /* 副色：淺藍色 */
             --site-color-3: #90ee90; /* 第三色：淺綠色 */
+            
+            /* 🚨 新增：定義卡片的最大寬度變數，以供橫幅圖片使用 */
+            --container-max-width: 600px; 
+            --container-width-mobile: 90%;
         }
         
         html, body {
@@ -32,49 +36,60 @@
             /* 背景圖片設定 */
             background-image: url('https://albert20034216.github.io/cat0608/images/homepic2.jpg');
             background-size: cover; background-position: center center; background-repeat: no-repeat; 
-            background-attachment: fixed; /* 確保背景固定 */
+            background-attachment: fixed; 
             background-color: var(--light-bg);
             
-            /* 關鍵：隱藏超出視窗的內容，才能看到滑動效果 */
             overflow: hidden;
-            position: relative; /* 作為橫幅絕對定位的基準 */
+            position: relative; 
         }
 
         /* ------------------------------------- */
-        /* 🚨 修正點 1: 固定橫幅圖片的容器 */
+        /* 🚨 修正點 1: 固定橫幅圖片的容器 - 使用精確的絕對定位 */
         /* ------------------------------------- */
         #fixed-cinnamoroll-wrapper {
-            position: absolute; /* 相對於 body 固定 */
+            position: absolute; 
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%; /* 佔滿整個視窗，方便控制顯示/隱藏 */
+            height: 100%;
             overflow: hidden;
             transition: opacity 0.3s ease;
-            z-index: 10; /* 確保在背景和滑動內容之間 */
-            pointer-events: none; /* 讓點擊能穿透到下層的滑動內容 */
+            z-index: 10; 
+            pointer-events: none; 
+            /* 使用 Flexbox 來定位固定圖片，與 .container 保持同步 */
+            display: flex;
+            justify-content: center; /* 水平置中 */
+            align-items: center; /* 垂直置中 */
         }
 
         /* 橫幅圖片實際樣式 */
         .fixed-cinnamoroll-img {
-            width: 100%;
+            /* 讓圖片容器的大小和位置與 .container 容器的頂部區域對齊 */
+            position: relative; /* 內部元素使用 relative 即可 */
+            
+            /* 🚨 關鍵修正：將圖片容器的 Y 軸位置向上推，精確對齊 .container 頂部 */
+            /* 計算邏輯：
+               1. .container 是在 .view-section (100vh) 中垂直置中的。
+               2. 圖片要固定在 .container 的頂部。
+               3. 透過負邊距將圖片容器向上推，使圖片的頂部與卡片頂部重合。
+            */
+            margin-bottom: calc(var(--container-max-width) * -1 + 400px); /* 初始定位向上推，但實際定位交給 transform */
+            
+            width: var(--container-max-width); /* 使用變數確保寬度一致 */
+            max-width: var(--container-width-mobile); /* 使用變數確保手機端寬度一致 */
+            
             height: 200px; /* 圖片高度 */
-            position: absolute;
-            top: 50%; /* 垂直置中，但會被卡片拉下來 */
-            transform: translateY(-50%); /* 為了修正垂直置中的偏移 */
-            left: 50%;
-            transform: translateX(-50%);
-            /* 讓圖片的位置與 #home-view 容器的頂部對齊 */
-            top: calc(50vh - 300px + 30px); /* 50vh - (容器高度/2) + 30px (容器頂部 padding) */
             
-            max-width: 600px;
-            width: 90%; /* 與 .container 寬度保持一致 */
-            
-            /* 使用一個遮罩來限制圖片的圓角和顯示區域 */
+            /* 調整圖片容器的邊緣屬性 */
             border-top-left-radius: 30px;
             border-top-right-radius: 30px;
             overflow: hidden;
+
+            /* 確保水平置中 */
+            margin-left: auto;
+            margin-right: auto;
         }
+
         .fixed-cinnamoroll-img img {
             width: 100%;
             height: 100%;
@@ -89,24 +104,21 @@
 
 
         /* ------------------------------------- */
-        /* 修正點 2: 讓內容卡片置中 (略) */
+        /* 滑動和容器樣式 (大部分不變) */
         /* ------------------------------------- */
 
-        /* 整個頁面內容的滑動容器 */
         #slider-wrapper {
             transition: transform 0.6s cubic-bezier(0.86, 0, 0.07, 1);
             width: 100%; 
-            height: 200vh; /* 包含兩頁內容 */
+            height: 200vh;
             transform: translateY(0); 
-            z-index: 20; /* 確保滑動內容在固定圖片之上 */
+            z-index: 20; 
         }
         
-        /* 頁面切換狀態：向上滑動一個視窗的高度 (100vh) */
         body.slide-up #slider-wrapper {
             transform: translateY(-100vh);
         }
 
-        /* 每個頁面區塊 */
         .view-section {
             width: 100%; 
             height: 100vh; 
@@ -117,30 +129,31 @@
             box-sizing: border-box;
         }
 
-        /* 主要內容卡片容器 */
         .container {
             background-color: rgba(255, 255, 255, 0.95);
             border-radius: 30px; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
-            padding: 0px 0px 50px 0px; max-width: 600px; width: 90%; z-index: 2; overflow: hidden; position: relative;
+            padding: 0px 0px 50px 0px; 
+            max-width: var(--container-max-width); /* 使用變數 */
+            width: var(--container-width-mobile); /* 使用變數 */
+            z-index: 2; overflow: hidden; position: relative;
         }
 
-        /* 🚨 修正點 3: 移除圖片的空間，並調整卡片頂部，讓內容置中 */
+        /* 🚨 修正點 3: 圖片元素佔位 */
         #home-view .cinnamoroll-img-wrapper {
-             /* 保持 HTML 結構，但讓它不佔空間 */
-            height: 200px;
+            height: 200px; /* 圖片高度 */
             margin-bottom: 30px;
-            visibility: hidden; /* 讓圖片空間保持，但內容不顯示 */
-        }
-        /* 確保卡片內容置中在圖片佔位之下的區域 */
-        #home-view .content-area {
-            /* 調整 padding，讓文字內容看起來置中 */
-            padding-top: 0px;
-        }
-        #home-view .cinnamoroll-main-img {
-            display: none; /* 隱藏舊的 img 標籤 */
+            visibility: hidden; /* 保留空間但不顯示內容 */
+            width: 100%;
+            overflow: hidden;
+            border-top-left-radius: 30px;
+            border-top-right-radius: 30px;
         }
         
-        /* 內文區塊 */
+        #home-view .cinnamoroll-main-img {
+            display: none; 
+        }
+        
+        /* 內文區塊 (略) */
         .content-area {
             padding: 0px 70px;
         }
@@ -183,10 +196,11 @@
             #home-view .cinnamoroll-img-wrapper { height: 160px; }
             .main-btn { font-size: 1.3em; padding: 15px 25px; } 
             .site-header h1 { font-size: 2em; }
-            /* 手機版修正固定圖片定位 */
+            
+            /* 🚨 修正點 4: 手機版修正固定圖片定位 - 確保與卡片頂部對齊 */
             .fixed-cinnamoroll-img {
-                 /* 根據手機版容器尺寸重新計算定位 */
-                 top: calc(50vh - 270px + 30px); /* 假設手機版卡片高度約 540px */
+                 /* 根據手機版佔位高度調整，向上推動，對齊卡片頂部 */
+                 margin-bottom: calc(var(--container-max-width) * -1 + 400px); 
             }
         }
     </style>
@@ -205,11 +219,10 @@
         <section id="home-view" class="view-section">
             <div class="container">
                 <div class="cinnamoroll-img-wrapper">
-                    <img src="https://albert20034216.github.io/cat0608/images/homepic1.jpg" alt="Cinnamoroll Banner" class="cinnamoroll-main-img">
-                </div>
+                    </div>
                 <div class="content-area">
-                    <h1>貓貓與軒軒の專屬網站</h1>
-                    <h2>歡迎來到大耳狗の雲端咖啡廳☕</h2>
+                    <h1>貓貓與軒軒的專屬網站</h1>
+                    <h2>歡迎來到大耳狗的雲端咖啡廳☕</h2>
                     <p>點擊下方按鈕，開始探索共享的網站及功能！</p>
                     <a href="javascript:void(0)" onclick="slideUp()" class="main-btn">
                         檢視所有網站及功能
@@ -264,11 +277,9 @@
             pageBody.classList.remove('slide-up');
         }
         
-        // 確保頁面載入時從主頁開始
         window.addEventListener('load', function() {
             pageBody.classList.remove('slide-up');
         });
     </script>
 </body>
 </html>
-
