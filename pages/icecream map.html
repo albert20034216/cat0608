@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>台北車站 OpenStreetMap</title>
+    <title>超商分層地圖</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -14,27 +14,34 @@
        crossorigin=""></script>
 
     <style>
-        /* 1. 預設樣式 (適用於所有設備，主要是電腦/平板) */
+        /* 響應式地圖樣式 */
         #map {
-            height: 600px; /* 電腦版地圖高度 */
+            height: 600px;
             width: 100%;
         }
         
-        /* 2. 響應式調整：使用媒體查詢偵測手機螢幕 */
-        /* 當螢幕最大寬度為 768px 時 (一般視為手機/小平板) */
+        /* 手機最佳化 */
         @media (max-width: 768px) {
-            /* 在手機上，讓地圖佔滿整個可視視窗的高度 (vh = viewport height) */
-            /* 這樣用戶就不需要滾動頁面來查看地圖 */
             #map {
                 height: 100vh; 
             }
-            
-            /* 將 body 和 html 的高度也設為 100%，以確保地圖能佔滿整個頁面 */
             html, body {
                 height: 100%;
-                margin: 0; /* 移除瀏覽器預設的邊距 */
+                margin: 0; 
                 padding: 0;
             }
+        }
+        
+        /* 自訂定位按鈕的樣式 (延用上一個版本) */
+        .leaflet-control-locate a {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path fill="%23333" d="M16 4c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm0 2c5.523 0 10 4.477 10 10s-4.477 10-10 10-10-4.477-10-10 4.477-10 10-10zm0 3c-3.866 0-7 3.134-7 7s3.134 7 7 7 7-3.134 7-7-3.134-7-7-7zm0 2c2.761 0 5 2.239 5 5s-2.239 5-5 5-5-2.239-5-5 2.239-5 5-5z"/></svg>');
+            background-size: 26px 26px;
+            background-position: 50% 50%;
+            background-repeat: no-repeat;
+            display: block;
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
         }
     </style>
 </head>
@@ -43,24 +50,152 @@
     <div id="map"></div>
 
     <script>
-        // 1. 設定地圖的初始座標和縮放級別
-        const taipeiStationCoord = [25.0477, 121.5170];
-        const initialZoom = 15; 
+        // =================================================================
+        // 🌟🌟🌟  超級方便打點區 🌟🌟🌟
+        // 您只需修改這個陣列即可新增、刪除或修改打點
+        // 格式：[緯度, 經度, '名稱', '圖層名稱 (全家/7-11)', '彈出視窗內容']
+        // =================================================================
+        const STORE_DATA = [
+            // 全家便利商店 (FamilyMart)
+            [25.0478, 121.5160, '全家北車店', '全家', '最近的火車站出口'],
+            [25.0450, 121.5205, '全家華山店', '全家', '靠近華山文創園區'],
+            
+            // 7-11 便利商店
+            [25.0485, 121.5175, '7-11捷運店', '7-11', '捷運出口旁的 7-11'],
+            [25.0490, 121.5155, '7-11公園店', '7-11', '附近有公園'],
+            
+            // 您可以自行新增更多打點，例如：
+            // [25.033, 121.565, '7-11市府店', '7-11', '市政府附近的 7-11']
+        ];
+        // =================================================================
+        // 🌟🌟🌟  結束打點區  🌟🌟🌟
+        // =================================================================
 
-        // 2. 初始化地圖
-        const map = L.map('map').setView(taipeiStationCoord, initialZoom);
+        // 預設位置：台北火車站
+        const TAIPEI_STATION_COORD = [25.0477, 121.5170];
+        const INITIAL_ZOOM = 15;
+        
+        let currentLocationMarker;
+        let accuracyCircle;
 
-        // 3. 加入 OpenStreetMap 圖層
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // 1. 初始化地圖
+        const map = L.map('map', {
+            center: TAIPEI_STATION_COORD,
+            zoom: INITIAL_ZOOM,
+            zoomControl: true 
+        });
+
+        // 2. 加入 OpenStreetMap 圖層
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
-        // 4. 加入一個標記 (Marker) 在台北火車站的位置
-        const marker = L.marker(taipeiStationCoord).addTo(map);
 
-        // 5. 標記上可以加入彈出視窗 (Popup)，並自動開啟
-        marker.bindPopup("<b>台北火車站</b><br>Taiwan Railway Administration").openPopup();
+        // 3. 創建圖層群組 (Layer Groups)
+        const familyMartGroup = L.layerGroup();
+        const sevenElevenGroup = L.layerGroup();
+
+        // 4. 根據 STORE_DATA 陣列動態新增打點
+        STORE_DATA.forEach(data => {
+            const [lat, lng, name, layerName, popupContent] = data;
+            const marker = L.marker([lat, lng], {
+                title: name // 標題作為滑鼠懸停提示
+            }).bindPopup(`<b>${name}</b><br>${popupContent}`);
+
+            if (layerName === '全家') {
+                marker.addTo(familyMartGroup);
+            } else if (layerName === '7-11') {
+                marker.addTo(sevenElevenGroup);
+            }
+        });
+        
+        // 預設將兩個圖層都加入地圖中
+        familyMartGroup.addTo(map);
+        sevenElevenGroup.addTo(map);
+
+
+        // 5. 加入圖層控制項
+        // 底圖 (Base Layers) - 這裡只有 OSM 一層
+        const baseLayers = {
+            "OpenStreetMap": osmLayer
+        };
+
+        // 覆蓋圖層 (Overlay Layers) - 我們的打點群組
+        const overlayLayers = {
+            "🏪 全家 (FamilyMart)": familyMartGroup,
+            "🏪 7-11": sevenElevenGroup
+        };
+        
+        // 將圖層控制項加入地圖 (通常位於右上角)
+        L.control.layers(baseLayers, overlayLayers, {
+            collapsed: false // 預設展開圖層列表 (可設為 true 隱藏)
+        }).addTo(map);
+
+
+        // --- 定位功能實作 (保留上一個版本的功能) ---
+
+        function onLocationFound(e) {
+            const radius = e.accuracy;
+            const latlng = e.latlng;
+            
+            if (currentLocationMarker) {
+                map.removeLayer(currentLocationMarker);
+            }
+            if (accuracyCircle) {
+                map.removeLayer(accuracyCircle);
+            }
+
+            currentLocationMarker = L.marker(latlng).addTo(map)
+                .bindPopup("您目前的位置，誤差約 " + radius.toFixed(0) + " 公尺").openPopup();
+
+            accuracyCircle = L.circle(latlng, radius, {
+                color: 'blue',
+                fillColor: '#30f',
+                fillOpacity: 0.1,
+                weight: 1
+            }).addTo(map);
+
+            map.setView(latlng, Math.min(map.getZoom(), 16));
+        }
+
+        function onLocationError(e) {
+            console.error(e.message);
+            alert("無法取得您的地理位置。\n錯誤訊息: " + e.message + "\n地圖將顯示台北火車站。");
+            map.setView(TAIPEI_STATION_COORD, INITIAL_ZOOM);
+        }
+
+        map.on('locationfound', onLocationFound);
+        map.on('locationerror', onLocationError);
+
+        // 自訂定位控制按鈕
+        const LocateControl = L.Control.extend({
+            options: {
+                position: 'topleft'
+            },
+            onAdd: function (map) {
+                const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-locate');
+                const link = L.DomUtil.create('a', '', container);
+                link.href = '#';
+                link.title = '定位到您的位置';
+                link.role = 'button';
+                L.DomEvent.on(link, 'click', L.DomEvent.stop)
+                          .on(link, 'click', function () {
+                              map.locate({setView: true, maxZoom: 16});
+                          });
+                return container;
+            }
+        });
+        map.addControl(new LocateControl());
+
+        // 網頁開啟時的初始定位請求
+        map.locate({
+            setView: true,
+            maxZoom: 16,   
+            watch: false,  
+            enableHighAccuracy: true
+        });
+
     </script>
 
 </body>
