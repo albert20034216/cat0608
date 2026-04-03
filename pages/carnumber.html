@@ -2,9 +2,11 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>車牌管理系統</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    
     <style>
         :root {
             --primary: #6750A4;
@@ -17,7 +19,17 @@
             --outline: #79747E;
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        /* 全域防止點擊藍框與縮放 */
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent; 
+            touch-action: manipulation; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* 允許輸入框可以被選取文字（針對新增功能） */
+        input { user-select: auto; -webkit-user-select: auto; }
 
         body {
             font-family: 'Roboto', -apple-system, sans-serif;
@@ -46,53 +58,75 @@
             padding: 8px 12px; overflow: hidden;
         }
 
+        /* 顯示輸入車號的框 */
+        .display-box {
+            width: 100%; height: 44px; border: 2px solid var(--primary);
+            border-radius: 8px; font-size: 22px; font-weight: bold;
+            display: flex; align-items: center; padding: 0 12px;
+            background: #fff; color: var(--primary);
+            flex-shrink: 0;
+        }
+
+        .status-text { font-size: 13px; font-weight: bold; padding: 2px 0; min-height: 20px; flex-shrink: 0; }
+
+        /* 列表區域：支援平滑滑動 */
         .list-area {
             flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; 
             margin: 4px 0; border: 1px solid #eee; border-radius: 4px; background: #fafafa;
         }
-        .status-text { font-size: 13px; font-weight: bold; padding: 2px 0; min-height: 20px; }
-        .item-row { padding: 10px 12px; border-bottom: 1px solid #eee; background: #fff; }
+
+        .item-row { padding: 10px 12px; border-bottom: 1px solid #eee; background: #fff; display: flex; flex-direction: column; gap: 2px; }
+        .item-main { display: flex; justify-content: space-between; align-items: center; }
         .plate-num { font-size: 17px; font-weight: bold; }
         .plate-date { font-size: 11px; color: #777; }
 
-        /* 鍵盤 */
+        /* 矮化後的鍵盤區 */
         .keyboard {
             display: grid; grid-template-columns: repeat(3, 1fr);
             gap: 4px; padding: 4px 0 8px 0; flex-shrink: 0;
+            background: #fff;
         }
         .btn {
-            height: 40px; border: none; border-radius: 6px;
+            height: 42px; border: none; border-radius: 6px;
             font-size: 18px; font-weight: 900; cursor: pointer;
             background: var(--primary-container); color: var(--on-primary-container);
+            /* 核心：再次確保按鈕不會觸發縮放 */
+            touch-action: manipulation;
         }
+        .btn:active { background: #d0bcff; }
         .btn.error { background: var(--error); color: var(--on-error); }
         .btn-search {
-            grid-column: span 3; height: 46px; margin-top: 2px;
+            grid-column: span 3; height: 48px; margin-top: 2px;
             background: var(--primary); color: var(--on-primary);
             font-size: 16px; font-weight: bold;
         }
 
-        /* 導航 */
+        /* 底部導航 */
         .nav {
             height: 60px; background: var(--surface);
             display: flex; justify-content: space-around; align-items: center;
             border-top: 1px solid #ddd; flex-shrink: 0;
+            padding-bottom: env(safe-area-inset-bottom); /* 適應 iPhone 底部橫條 */
         }
-        .nav-item { text-align: center; font-size: 11px; cursor: pointer; color: var(--outline); flex: 1; }
+        .nav-item { text-align: center; font-size: 11px; cursor: pointer; color: var(--outline); flex: 1; transition: 0.2s; }
         .nav-item.active { color: var(--primary); font-weight: bold; }
 
-        /* 相機 */
-        #cam-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 200; }
+        /* 分頁標籤樣式 */
+        .tab-row { display: flex; margin-bottom: 8px; border-bottom: 1px solid #eee; flex-shrink: 0; }
+        .tab { flex: 1; padding: 10px; text-align: center; font-size: 14px; cursor: pointer; color: #666; }
+        .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); font-weight: bold; background: rgba(103, 80, 164, 0.05); }
+
+        /* 相機層 */
+        #cam-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 200;
+        }
         #video { width: 100%; height: 100%; object-fit: cover; }
         .cam-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
-        .scan-rect { width: 280px; height: 120px; border: 2px solid #fff; margin-top: 30vh; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); position: relative; }
-        .cam-controls { position: absolute; bottom: 40px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 15px; pointer-events: auto; }
-        .capture-btn { width: 70px; height: 70px; border-radius: 50%; border: 5px solid #fff; background: var(--error); cursor: pointer; }
-
-        /* 設定頁面標籤 */
-        .tab-row { display: flex; margin-bottom: 8px; border-bottom: 1px solid #eee; flex-shrink: 0; }
-        .tab { flex: 1; padding: 12px; text-align: center; font-size: 14px; cursor: pointer; color: #666; transition: 0.3s; }
-        .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); font-weight: bold; background: var(--surface); }
+        .scan-rect { width: 260px; height: 100px; border: 2px solid #fff; margin-top: 30vh; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
+        .cam-controls { position: absolute; bottom: 50px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 20px; pointer-events: auto; }
+        .capture-btn { width: 70px; height: 70px; border-radius: 50%; border: 5px solid #fff; background: var(--error); }
+        .del-text { color: var(--error); font-weight: bold; cursor: pointer; padding: 4px; }
     </style>
 </head>
 <body>
@@ -102,7 +136,7 @@
 
     <div class="main-container" id="page-input">
         <div class="input-group">
-            <div id="num-display" style="width: 100%; height: 44px; border: 2px solid var(--primary); border-radius: 8px; font-size: 20px; font-weight: bold; display: flex; align-items: center; padding: 0 12px; background: white;"></div>
+            <div class="display-box" id="num-display"></div>
             <div id="search-status" class="status-text"></div>
         </div>
         <div class="list-area" id="result-list"></div>
@@ -128,7 +162,7 @@
     </div>
 
     <div class="nav">
-        <div class="nav-item" onclick="openCam()">📷<br>掃描</div>
+        <div class="nav-item" id="nav-cam" onclick="openCam()">📷<br>掃描</div>
         <div class="nav-item active" id="nav-in" onclick="showPage('IN')">⌨️<br>手動</div>
         <div class="nav-item" id="nav-set" onclick="showPage('SET')">⚙️<br>設定</div>
     </div>
@@ -139,9 +173,9 @@
     <div class="cam-ui">
         <div class="scan-rect" id="scan-rect"></div>
         <div class="cam-controls">
-            <div id="scan-result-text" style="color:#fff; background:rgba(0,0,0,0.7); padding:5px 15px; border-radius:5px;">等待掃描...</div>
+            <div id="scan-result-text" style="color:#fff; background:rgba(0,0,0,0.8); padding:8px 16px; border-radius:8px; text-align:center;">準備就緒</div>
             <button class="capture-btn" onclick="captureAndRecognize()"></button>
-            <button onclick="closeCam()" style="color:#fff; background:none; border:1px solid #fff; padding:8px 20px; border-radius:20px;">返回</button>
+            <button onclick="closeCam()" style="color:#fff; background:rgba(255,255,255,0.2); border:1px solid #fff; padding:8px 24px; border-radius:20px;">返回</button>
         </div>
     </div>
     <canvas id="crop-canvas" style="display:none;"></canvas>
@@ -153,6 +187,7 @@
     let sortMode = 0; 
     let worker = null;
 
+    // 初始化 OCR
     async function initOCR() {
         if (!worker) {
             worker = await Tesseract.createWorker('eng');
@@ -160,25 +195,39 @@
         }
     }
 
-    function fmtDate(ts) { const d = new Date(ts); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
+    function fmtDate(ts) { 
+        const d = new Date(ts); 
+        return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; 
+    }
 
+    // 鍵盤輸入
     function k(val) {
-        if(val === 'C') { inputStr = ""; document.getElementById('search-status').innerText = ""; document.getElementById('result-list').innerHTML = ""; }
-        else if(val === 'B') inputStr = inputStr.slice(0, -1);
-        else if(inputStr.length < 10) inputStr += val;
+        if(val === 'C') {
+            inputStr = "";
+            document.getElementById('search-status').innerText = "";
+            document.getElementById('result-list').innerHTML = "";
+        } else if(val === 'B') {
+            inputStr = inputStr.slice(0, -1);
+        } else if(inputStr.length < 10) {
+            inputStr += val;
+        }
         document.getElementById('num-display').innerText = inputStr;
     }
 
+    // 搜尋功能
     function runSearch() {
         if(!inputStr) return;
-        const searchKey = inputStr.toUpperCase(); // 搜尋時強制轉大寫匹配
+        const searchKey = inputStr.toUpperCase();
         const matches = db.filter(p => p.num && p.num.toUpperCase().includes(searchKey)).sort((a,b) => a.num.localeCompare(b.num));
         const list = document.getElementById('result-list');
         const status = document.getElementById('search-status');
+        
         list.innerHTML = "";
         if(matches.length > 0) {
             status.innerHTML = '<span style="color:green">● 符合項目</span>';
-            matches.forEach(m => { list.innerHTML += `<div class="item-row"><div class="plate-num">${m.num}</div><div class="plate-date">加入日期: ${fmtDate(m.time)}</div></div>`; });
+            matches.forEach(m => {
+                list.innerHTML += `<div class="item-row"><div class="plate-num">${m.num}</div><div class="plate-date">加入日期: ${fmtDate(m.time)}</div></div>`;
+            });
             if(navigator.vibrate) navigator.vibrate(70);
         } else {
             status.innerHTML = '<span style="color:red">✖ 無符合資料</span>';
@@ -186,49 +235,75 @@
         }
     }
 
+    // 切換分頁
     function showPage(p) {
         document.getElementById('page-input').style.display = p === 'IN' ? 'flex' : 'none';
         document.getElementById('page-set').style.display = p === 'SET' ? 'flex' : 'none';
         document.getElementById('nav-in').classList.toggle('active', p === 'IN');
         document.getElementById('nav-set').classList.toggle('active', p === 'SET');
+        document.getElementById('title').innerText = p === 'IN' ? '車號搜尋(純數字)' : '車牌資料庫管理';
         if(p === 'SET') renderFull();
     }
 
-    // 修正標籤切換顯示
+    // 切換排序與標籤同步
     function setSort(m) {
         sortMode = m;
-        // 切換 Active 樣式
         document.getElementById('tab-alpha').classList.toggle('active', m === 0);
         document.getElementById('tab-date').classList.toggle('active', m === 1);
         renderFull();
     }
 
+    // 新增 (強制大寫)
     function addP() {
-        const val = document.getElementById('new-p').value.toUpperCase().trim(); // 儲存前強制大寫
-        if(val && !db.find(x => x.num.toUpperCase() === val)) { 
-            db.push({ num: val, time: Date.now() }); 
-            localStorage.setItem('plates', JSON.stringify(db)); 
-            document.getElementById('new-p').value = ""; 
-            renderFull(); 
+        const val = document.getElementById('new-p').value.toUpperCase().trim();
+        if(val && !db.find(x => x.num.toUpperCase() === val)) {
+            db.push({ num: val, time: Date.now() });
+            localStorage.setItem('plates', JSON.stringify(db));
+            document.getElementById('new-p').value = "";
+            renderFull();
         }
     }
 
-    function delP(n) { if(confirm("確定刪除 "+n+"?")) { db = db.filter(x => x.num !== n); localStorage.setItem('plates', JSON.stringify(db)); renderFull(); } }
+    // 刪除
+    function delP(n) {
+        if(confirm("確定要刪除車牌 " + n + " 嗎？")) {
+            db = db.filter(x => x.num !== n);
+            localStorage.setItem('plates', JSON.stringify(db));
+            renderFull();
+        }
+    }
 
+    // 渲染資料庫清單
     function renderFull() {
-        const list = document.getElementById('full-list'); list.innerHTML = "";
+        const list = document.getElementById('full-list');
+        list.innerHTML = "";
         let sorted = [...db];
-        if(sortMode === 0) sorted.sort((a,b) => a.num.localeCompare(b.num)); else sorted.sort((a,b) => b.time - a.time);
-        sorted.forEach(p => { 
-            list.innerHTML += `<div class="item-row"><div style="display:flex; justify-content:space-between;"><span class="plate-num">${p.num}</span><span style="color:red; font-weight:bold; cursor:pointer;" onclick="delP('${p.num}')">刪除</span></div><div class="plate-date">加入日期: ${fmtDate(p.time)}</div></div>`; 
+        if(sortMode === 0) sorted.sort((a,b) => a.num.localeCompare(b.num));
+        else sorted.sort((a,b) => b.time - a.time);
+
+        sorted.forEach(p => {
+            list.innerHTML += `
+                <div class="item-row">
+                    <div class="item-main">
+                        <span class="plate-num">${p.num}</span>
+                        <span class="del-text" onclick="delP('${p.num}')">刪除</span>
+                    </div>
+                    <div class="plate-date">加入日期: ${fmtDate(p.time)}</div>
+                </div>`;
         });
     }
 
+    // 相機控制
     async function openCam() {
         document.getElementById('cam-overlay').style.display = 'block';
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        document.getElementById('video').srcObject = stream;
-        initOCR();
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            document.getElementById('video').srcObject = stream;
+            initOCR();
+        } catch (err) {
+            alert("無法開啟相機，請確認是否授予權限或使用 HTTPS。");
+            closeCam();
+        }
     }
 
     function closeCam() {
@@ -242,22 +317,35 @@
         const canvas = document.getElementById('crop-canvas');
         const resText = document.getElementById('scan-result-text');
         const ctx = canvas.getContext('2d');
-        resText.innerText = "辨識中...";
+        
+        resText.innerText = "辨識中，請稍候...";
+        
+        // 取得裁切框比例
         const rect = document.getElementById('scan-rect').getBoundingClientRect();
         const scaleX = video.videoWidth / window.innerWidth;
         const scaleY = video.videoHeight / window.innerHeight;
-        canvas.width = rect.width * scaleX; canvas.height = rect.height * scaleY;
+        
+        canvas.width = rect.width * scaleX;
+        canvas.height = rect.height * scaleY;
+        
         ctx.drawImage(video, rect.left * scaleX, rect.top * scaleY, rect.width * scaleX, rect.height * scaleY, 0, 0, canvas.width, canvas.height);
+        
         try {
             const { data: { text } } = await worker.recognize(canvas);
             const cleanText = text.replace(/[^A-Z0-9]/g, "").toUpperCase().trim();
-            if (cleanText.length >= 5) {
+            
+            if (cleanText.length >= 4) {
                 const match = db.find(p => p.num.replace("-", "").toUpperCase() === cleanText);
-                resText.innerHTML = `偵測到：<span style="color:yellow">${cleanText}</span><br>${match ? '<span style="color:#00ff00">● 授權通過</span>' : '<span style="color:#ff0000">✖ 非授權</span>'}`;
+                resText.innerHTML = `結果：<span style="color:yellow">${cleanText}</span><br>${match ? '<span style="color:#00ff00">● 已授權</span>' : '<span style="color:#ff4444">✖ 未授權</span>'}`;
                 if(navigator.vibrate) navigator.vibrate(match ? 70 : 500);
-            } else { resText.innerText = "未偵測到有效車牌"; }
-        } catch (e) { resText.innerText = "辨識發生錯誤"; }
+            } else {
+                resText.innerText = "偵測失敗，請對準車牌再試一次";
+            }
+        } catch (e) {
+            resText.innerText = "辨識引擎忙碌中";
+        }
     }
 </script>
+
 </body>
 </html>
