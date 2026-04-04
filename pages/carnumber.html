@@ -4,190 +4,152 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>車牌管理系統</title>
-    
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    
     <style>
         :root {
             --primary: #6750A4;
-            --on-primary: #ffffff;
-            --primary-container: #EADDFF;
-            --on-primary-container: #21005D;
-            --error: #B3261E;
-            --on-error: #ffffff;
             --surface: #f3edf7;
+            --error: #B3261E;
+            --warning: #FF9800;
+            --warning-light: #FFF3E0;
             --outline: #79747E;
+            --success: #2E7D32;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        body { font-family: sans-serif; margin: 0; background: #f0f0f0; height: 100vh; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+        .phone-wrapper { width: 100%; max-width: 500px; height: 100%; background: #fff; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        
+        .header { height: 50px; background: var(--surface); display: flex; align-items: center; justify-content: center; font-weight: bold; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+        .main-container { flex: 1; display: flex; flex-direction: column; padding: 10px; overflow: hidden; }
+        
+        /* 搜尋頁面樣式 */
+        .display-box { width: 100%; height: 50px; border: 2px solid var(--primary); border-radius: 8px; font-size: 24px; font-weight: bold; display: flex; align-items: center; padding: 0 12px; margin-bottom: 5px; background: #fff; }
+        .keyboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding-bottom: 10px; flex-shrink: 0; }
+        .btn { height: 42px; border: none; border-radius: 6px; font-size: 18px; font-weight: bold; background: #EADDFF; cursor: pointer; }
+        .btn.error { background: var(--error); color: white; }
+        .btn-search { grid-column: span 3; height: 48px; background: var(--primary); color: white; }
+
+        #search-status { 
+            font-size: 16px; font-weight: bold; text-align: center; 
+            min-height: 24px; margin-bottom: 8px; display: flex; 
+            justify-content: center; align-items: center;
         }
 
-        /* 全域防止點擊藍框與縮放 */
-        * { 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent; 
-            touch-action: manipulation; 
-            user-select: none;
-            -webkit-user-select: none;
-        }
+        /* 管理頁面輸入區 */
+        .input-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: var(--surface); padding: 12px; border-radius: 8px; flex-shrink: 0; }
+        .input-row { display: flex; align-items: center; gap: 8px; }
+        .helper-text { font-size: 10px; color: #777; margin: -2px 0 2px 2px; }
+        input[type="text"]#in-plate { height: 55px; font-size: 18px; font-weight: bold; border: 2px solid var(--primary); }
+        input[type="text"], input[type="date"] { flex: 1; height: 40px; border: 1px solid #ccc; border-radius: 4px; padding: 0 10px; }
 
-        /* 允許輸入框可以被選取文字（針對新增功能） */
-        input { user-select: auto; -webkit-user-select: auto; }
-
-        body {
-            font-family: 'Roboto', -apple-system, sans-serif;
-            margin: 0; padding: 0;
-            display: flex; flex-direction: column;
-            height: 100vh; background: #f0f0f0;
-            overflow: hidden;
-            align-items: center;
-        }
-
-        .phone-wrapper {
-            width: 100%; max-width: 500px; height: 100%;
-            background: #fff; display: flex; flex-direction: column;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-
-        .header {
-            height: 50px; background: var(--surface);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; font-weight: bold; border-bottom: 1px solid #ddd;
-            flex-shrink: 0;
-        }
-
-        .main-container {
-            flex: 1; display: flex; flex-direction: column;
-            padding: 8px 12px; overflow: hidden;
-        }
-
-        /* 顯示輸入車號的框 */
-        .display-box {
-            width: 100%; height: 44px; border: 2px solid var(--primary);
-            border-radius: 8px; font-size: 22px; font-weight: bold;
-            display: flex; align-items: center; padding: 0 12px;
-            background: #fff; color: var(--primary);
-            flex-shrink: 0;
-        }
-
-        .status-text { font-size: 13px; font-weight: bold; padding: 2px 0; min-height: 20px; flex-shrink: 0; }
-
-        /* 列表區域：支援平滑滑動 */
-        .list-area {
-            flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; 
-            margin: 4px 0; border: 1px solid #eee; border-radius: 4px; background: #fafafa;
-        }
-
-        .item-row { padding: 10px 12px; border-bottom: 1px solid #eee; background: #fff; display: flex; flex-direction: column; gap: 2px; }
-        .item-main { display: flex; justify-content: space-between; align-items: center; }
+        /* 列表樣式 */
+        .list-area { flex: 1; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; background: #fafafa; }
+        .item-row { padding: 12px; border-bottom: 1px solid #eee; background: #fff; display: flex; align-items: center; gap: 12px; }
+        .item-row.expired { background-color: var(--warning-light); }
+        .item-info { flex: 1; }
         .plate-num { font-size: 17px; font-weight: bold; }
-        .plate-date { font-size: 11px; color: #777; }
+        .plate-meta { font-size: 11px; color: #666; display: block; margin-top: 2px; }
+        
+        /* 視覺樣式定義 */
+        .text-red { color: var(--error); font-weight: normal; } 
+        .text-orange-bold { color: var(--warning); font-weight: bold; } 
 
-        /* 矮化後的鍵盤區 */
-        .keyboard {
-            display: grid; grid-template-columns: repeat(3, 1fr);
-            gap: 4px; padding: 4px 0 8px 0; flex-shrink: 0;
-            background: #fff;
-        }
-        .btn {
-            height: 42px; border: none; border-radius: 6px;
-            font-size: 18px; font-weight: 900; cursor: pointer;
-            background: var(--primary-container); color: var(--on-primary-container);
-            /* 核心：再次確保按鈕不會觸發縮放 */
-            touch-action: manipulation;
-        }
-        .btn:active { background: #d0bcff; }
-        .btn.error { background: var(--error); color: var(--on-error); }
-        .btn-search {
-            grid-column: span 3; height: 48px; margin-top: 2px;
-            background: var(--primary); color: var(--on-primary);
-            font-size: 16px; font-weight: bold;
-        }
+        .check-circle { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--outline); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+        .check-circle.active { background: var(--primary); border-color: var(--primary); }
+        .check-circle.active::after { content: '✓'; color: white; font-weight: bold; }
 
-        /* 底部導航 */
-        .nav {
-            height: 60px; background: var(--surface);
-            display: flex; justify-content: space-around; align-items: center;
-            border-top: 1px solid #ddd; flex-shrink: 0;
-            padding-bottom: env(safe-area-inset-bottom); /* 適應 iPhone 底部橫條 */
-        }
-        .nav-item { text-align: center; font-size: 11px; cursor: pointer; color: var(--outline); flex: 1; transition: 0.2s; }
+        .tab-row { display: flex; border-bottom: 1px solid #eee; flex-shrink: 0; }
+        .tab { flex: 1; padding: 12px 5px; text-align: center; font-size: 13px; cursor: pointer; color: #666; }
+        .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); font-weight: bold; }
+
+        .multi-bar { display: none; flex-direction: column; gap: 8px; padding: 10px; background: var(--primary); color: white; }
+        .multi-bar-btns { display: flex; gap: 8px; justify-content: space-between; }
+        .bar-btn { flex: 1; height: 32px; border: none; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; }
+        .del-btn { color: var(--error); font-size: 13px; font-weight: bold; cursor: pointer; padding: 5px; }
+
+        #cam-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 100; }
+        .scan-rect { position: absolute; top: 35%; left: 50%; transform: translate(-50%,-50%); width: 280px; height: 110px; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
+        .cam-controls { position: absolute; bottom: 50px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+
+        .nav { height: 60px; background: var(--surface); display: flex; border-top: 1px solid #ddd; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: #79747E; cursor: pointer; }
         .nav-item.active { color: var(--primary); font-weight: bold; }
-
-        /* 分頁標籤樣式 */
-        .tab-row { display: flex; margin-bottom: 8px; border-bottom: 1px solid #eee; flex-shrink: 0; }
-        .tab { flex: 1; padding: 10px; text-align: center; font-size: 14px; cursor: pointer; color: #666; }
-        .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); font-weight: bold; background: rgba(103, 80, 164, 0.05); }
-
-        /* 相機層 */
-        #cam-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 200;
-        }
-        #video { width: 100%; height: 100%; object-fit: cover; }
-        .cam-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
-        .scan-rect { width: 260px; height: 100px; border: 2px solid #fff; margin-top: 30vh; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
-        .cam-controls { position: absolute; bottom: 50px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 20px; pointer-events: auto; }
-        .capture-btn { width: 70px; height: 70px; border-radius: 50%; border: 5px solid #fff; background: var(--error); }
-        .del-text { color: var(--error); font-weight: bold; cursor: pointer; padding: 4px; }
     </style>
 </head>
 <body>
 
 <div class="phone-wrapper">
-    <div class="header" id="title">車號搜尋(純數字)</div>
+    <div class="header">車牌管理</div>
 
-    <div class="main-container" id="page-input">
-        <div class="input-group">
-            <div class="display-box" id="num-display"></div>
-            <div id="search-status" class="status-text"></div>
-        </div>
-        <div class="list-area" id="result-list"></div>
+    <div class="main-container" id="page-search">
+        <div class="display-box" id="num-display"></div>
+        <div id="search-status"></div>
+        <div class="list-area" id="search-results"></div>
         <div class="keyboard">
             <button class="btn" onclick="k('1')">1</button><button class="btn" onclick="k('2')">2</button><button class="btn" onclick="k('3')">3</button>
             <button class="btn" onclick="k('4')">4</button><button class="btn" onclick="k('5')">5</button><button class="btn" onclick="k('6')">6</button>
             <button class="btn" onclick="k('7')">7</button><button class="btn" onclick="k('8')">8</button><button class="btn" onclick="k('9')">9</button>
             <button class="btn error" onclick="k('C')">C</button><button class="btn" onclick="k('0')">0</button><button class="btn error" onclick="k('B')">⌫</button>
-            <button class="btn btn-search" onclick="runSearch()">開始搜尋</button>
+            <button class="btn btn-search" onclick="doSearch()">搜尋</button>
         </div>
     </div>
 
-    <div class="main-container" id="page-set" style="display:none;">
+    <div class="main-container" id="page-manage" style="display:none;">
+        <div class="input-form">
+            <input type="text" id="in-plate" placeholder="輸入車號 (多筆用逗號隔開)" oninput="this.value=this.value.toUpperCase()">
+            <div class="helper-text">Google表單多筆匯入公式 =TEXTJOIN(",", TRUE, A1:A10)</div>
+            <div class="input-row">
+                <span style="font-size:14px; font-weight:bold; color:#555;">到期日期</span>
+                <input type="date" id="in-expiry">
+                <button onclick="addPlates()" style="background:var(--primary); color:white; border:none; height:40px; padding:0 15px; border-radius:4px; font-weight:bold;">新增</button>
+            </div>
+        </div>
+
         <div class="tab-row">
-            <div class="tab active" id="tab-alpha" onclick="setSort(0)">依字母排列</div>
-            <div class="tab" id="tab-date" onclick="setSort(1)">依加入日期</div>
+            <div class="tab active" id="tab-alpha" onclick="setSort('alpha')">依字母</div>
+            <div class="tab" id="tab-date" onclick="setSort('date')">依加入日期</div>
+            <div class="tab" id="tab-expiry" onclick="setSort('expiry')">依到期日</div>
         </div>
-        <div style="display:flex; gap:8px; margin-bottom:12px;">
-            <input type="text" id="new-p" style="flex:1; height:40px; border:1px solid #ccc; border-radius:4px; padding:0 8px;" placeholder="新增車牌..." oninput="this.value = this.value.toUpperCase()">
-            <button onclick="addP()" style="background:var(--primary); color:#fff; border:none; border-radius:4px; padding:0 12px; font-weight:bold;">加入</button>
+
+        <div class="multi-bar" id="multi-bar">
+            <div style="font-size: 12px; margin-bottom: 4px;" id="select-count">已選擇 0 筆</div>
+            <div class="multi-bar-btns">
+                <button class="bar-btn" onclick="selectAll(true)" style="background:#fff; color:var(--primary);">全部勾選</button>
+                <button class="bar-btn" onclick="selectAll(false)" style="background:rgba(255,255,255,0.2); color:#fff; border:1px solid #fff;">取消全部</button>
+                <button class="bar-btn" onclick="deleteSelected()" style="background:var(--error); color:white;">刪除選中</button>
+            </div>
         </div>
+
         <div class="list-area" id="full-list"></div>
     </div>
 
     <div class="nav">
-        <div class="nav-item" id="nav-cam" onclick="openCam()">📷<br>掃描</div>
-        <div class="nav-item active" id="nav-in" onclick="showPage('IN')">⌨️<br>手動</div>
-        <div class="nav-item" id="nav-set" onclick="showPage('SET')">⚙️<br>設定</div>
+        <div class="nav-item" onclick="openCam()">📷<br>掃描</div>
+        <div class="nav-item active" id="nav-search" onclick="switchPage('search')">⌨️<br>搜尋</div>
+        <div class="nav-item" id="nav-manage" onclick="switchPage('manage')">⚙️<br>車牌管理</div>
     </div>
 </div>
 
 <div id="cam-overlay">
-    <video id="video" autoplay playsinline></video>
-    <div class="cam-ui">
-        <div class="scan-rect" id="scan-rect"></div>
-        <div class="cam-controls">
-            <div id="scan-result-text" style="color:#fff; background:rgba(0,0,0,0.8); padding:8px 16px; border-radius:8px; text-align:center;">準備就緒</div>
-            <button class="capture-btn" onclick="captureAndRecognize()"></button>
-            <button onclick="closeCam()" style="color:#fff; background:rgba(255,255,255,0.2); border:1px solid #fff; padding:8px 24px; border-radius:20px;">返回</button>
-        </div>
+    <video id="video" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+    <div class="scan-rect" id="scan-rect"></div>
+    <div class="cam-controls">
+        <div id="scan-result-text" style="color:#fff; background:rgba(0,0,0,0.8); padding:8px 16px; border-radius:8px; text-align:center; min-width:200px;">準備就緒</div>
+        <button onclick="captureOCR()" style="width:70px; height:70px; border-radius:50%; border:5px solid #fff; background:var(--error); cursor:pointer;"></button>
+        <button onclick="closeCam()" style="color:white; background:rgba(255,255,255,0.2); border:1px solid #fff; padding:8px 30px; border-radius:20px;">返回</button>
     </div>
     <canvas id="crop-canvas" style="display:none;"></canvas>
 </div>
 
 <script>
-    let db = JSON.parse(localStorage.getItem('plates') || '[]');
+    let db = JSON.parse(localStorage.getItem('plates_v5') || '[]');
     let inputStr = "";
-    let sortMode = 0; 
+    let sortType = 'alpha';
+    let selectedSet = new Set();
     let worker = null;
 
-    // 初始化 OCR
+    const getToday = () => new Date().toISOString().split('T')[0];
+
     async function initOCR() {
         if (!worker) {
             worker = await Tesseract.createWorker('eng');
@@ -195,157 +157,171 @@
         }
     }
 
-    function fmtDate(ts) { 
-        const d = new Date(ts); 
-        return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; 
-    }
-
-    // 鍵盤輸入
-    function k(val) {
-        if(val === 'C') {
-            inputStr = "";
-            document.getElementById('search-status').innerText = "";
-            document.getElementById('result-list').innerHTML = "";
-        } else if(val === 'B') {
-            inputStr = inputStr.slice(0, -1);
-        } else if(inputStr.length < 10) {
-            inputStr += val;
-        }
-        document.getElementById('num-display').innerText = inputStr;
-    }
-
-    // 搜尋功能
-    function runSearch() {
-        if(!inputStr) return;
-        const searchKey = inputStr.toUpperCase();
-        const matches = db.filter(p => p.num && p.num.toUpperCase().includes(searchKey)).sort((a,b) => a.num.localeCompare(b.num));
-        const list = document.getElementById('result-list');
-        const status = document.getElementById('search-status');
-        
-        list.innerHTML = "";
-        if(matches.length > 0) {
-            status.innerHTML = '<span style="color:green">● 符合項目</span>';
-            matches.forEach(m => {
-                list.innerHTML += `<div class="item-row"><div class="plate-num">${m.num}</div><div class="plate-date">加入日期: ${fmtDate(m.time)}</div></div>`;
-            });
-            if(navigator.vibrate) navigator.vibrate(70);
-        } else {
-            status.innerHTML = '<span style="color:red">✖ 無符合資料</span>';
-            if(navigator.vibrate) navigator.vibrate(500);
-        }
-    }
-
-    // 切換分頁
-    function showPage(p) {
-        document.getElementById('page-input').style.display = p === 'IN' ? 'flex' : 'none';
-        document.getElementById('page-set').style.display = p === 'SET' ? 'flex' : 'none';
-        document.getElementById('nav-in').classList.toggle('active', p === 'IN');
-        document.getElementById('nav-set').classList.toggle('active', p === 'SET');
-        document.getElementById('title').innerText = p === 'IN' ? '車號搜尋(純數字)' : '車牌資料庫管理';
-        if(p === 'SET') renderFull();
-    }
-
-    // 切換排序與標籤同步
-    function setSort(m) {
-        sortMode = m;
-        document.getElementById('tab-alpha').classList.toggle('active', m === 0);
-        document.getElementById('tab-date').classList.toggle('active', m === 1);
+    function saveDB() {
+        localStorage.setItem('plates_v5', JSON.stringify(db));
         renderFull();
     }
 
-    // 新增 (強制大寫)
-    function addP() {
-        const val = document.getElementById('new-p').value.toUpperCase().trim();
-        if(val && !db.find(x => x.num.toUpperCase() === val)) {
-            db.push({ num: val, time: Date.now() });
-            localStorage.setItem('plates', JSON.stringify(db));
-            document.getElementById('new-p').value = "";
-            renderFull();
+    function switchPage(p) {
+        document.getElementById('page-search').style.display = p==='search'?'flex':'none';
+        document.getElementById('page-manage').style.display = p==='manage'?'flex':'none';
+        document.getElementById('nav-search').classList.toggle('active', p==='search');
+        document.getElementById('nav-manage').classList.toggle('active', p==='manage');
+        if(p==='manage') renderFull();
+    }
+
+    function k(v) {
+        if(v==='C') { 
+            inputStr=""; 
+            document.getElementById('search-results').innerHTML=""; 
+            document.getElementById('search-status').innerHTML="";
+        }
+        else if(v==='B') inputStr = inputStr.slice(0,-1);
+        else if(inputStr.length < 10) inputStr += v;
+        document.getElementById('num-display').innerText = inputStr;
+    }
+
+    function generateMetaHTML(p, isExpired) {
+        const expiryText = p.expiry ? `到期: ${p.expiry}` : '無到期日';
+        const noteText = p.note ? `<span class="text-red">${p.note}</span>` : '';
+        const expiredTag = isExpired ? `<span class="text-orange-bold">[已到期]</span>` : '';
+        return `
+            <span class="plate-num">${p.num} ${expiredTag}</span>
+            <span class="plate-meta">加入: ${p.date} ${noteText} | <span class="text-red">${expiryText}</span></span>
+        `;
+    }
+
+    function doSearch() {
+        if(!inputStr) return;
+        const today = getToday();
+        const res = db.filter(p => p.num.includes(inputStr)).sort((a,b)=>a.num.localeCompare(b.num));
+        const box = document.getElementById('search-results');
+        const statusBox = document.getElementById('search-status');
+
+        if (res.length > 0) {
+            statusBox.innerHTML = `<span style="color:var(--success)">有 ${res.length} 筆相符合車牌 (○)</span>`;
+            box.innerHTML = res.map(p => {
+                const isExpired = p.expiry && p.expiry < today;
+                return `<div class="item-row ${isExpired ? 'expired' : ''}"><div class="item-info">${generateMetaHTML(p, isExpired)}</div></div>`;
+            }).join('');
+        } else {
+            statusBox.innerHTML = `<span style="color:var(--error)">查無結果 (×)</span>`;
+            box.innerHTML = "";
         }
     }
 
-    // 刪除
-    function delP(n) {
-        if(confirm("確定要刪除車牌 " + n + " 嗎？")) {
-            db = db.filter(x => x.num !== n);
-            localStorage.setItem('plates', JSON.stringify(db));
-            renderFull();
-        }
-    }
-
-    // 渲染資料庫清單
-    function renderFull() {
-        const list = document.getElementById('full-list');
-        list.innerHTML = "";
-        let sorted = [...db];
-        if(sortMode === 0) sorted.sort((a,b) => a.num.localeCompare(b.num));
-        else sorted.sort((a,b) => b.time - a.time);
-
-        sorted.forEach(p => {
-            list.innerHTML += `
-                <div class="item-row">
-                    <div class="item-main">
-                        <span class="plate-num">${p.num}</span>
-                        <span class="del-text" onclick="delP('${p.num}')">刪除</span>
-                    </div>
-                    <div class="plate-date">加入日期: ${fmtDate(p.time)}</div>
-                </div>`;
+    function addPlates() {
+        const raw = document.getElementById('in-plate').value.toUpperCase().trim();
+        const expiry = document.getElementById('in-expiry').value;
+        if(!raw) return;
+        const plates = raw.split(/[,，\s]+/).filter(v => v.trim());
+        const date = new Date().toLocaleDateString();
+        plates.forEach(p => {
+            if(!db.find(x => x.num === p)) {
+                db.push({ num: p, date, expiry: expiry || null, note: plates.length > 1 ? '(批次)' : '' });
+            }
         });
+        saveDB();
+        document.getElementById('in-plate').value = "";
+        document.getElementById('in-expiry').value = "";
     }
 
-    // 相機控制
+    function setSort(type) {
+        sortType = type;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + type).classList.add('active');
+        renderFull();
+    }
+
+    function renderFull() {
+        const today = getToday();
+        let list = [...db];
+        if(sortType === 'alpha') list.sort((a,b)=>a.num.localeCompare(b.num));
+        else if(sortType === 'date') list.reverse();
+        else if(sortType === 'expiry') {
+            list.sort((a,b) => {
+                if(!a.expiry) return 1; if(!b.expiry) return -1;
+                return a.expiry.localeCompare(b.expiry);
+            });
+        }
+        const box = document.getElementById('full-list');
+        box.innerHTML = list.map(p => {
+            const isExpired = p.expiry && p.expiry < today;
+            const isSelected = selectedSet.has(p.num);
+            return `
+                <div class="item-row ${isExpired ? 'expired' : ''}">
+                    <div class="check-circle ${isSelected ? 'active' : ''}" onclick="toggleSelect('${p.num}')"></div>
+                    <div class="item-info">${generateMetaHTML(p, isExpired)}</div>
+                    <span class="del-btn" onclick="singleDel('${p.num}')">刪除</span>
+                </div>
+            `;
+        }).join('');
+        updateMultiUI();
+    }
+
+    function toggleSelect(num) {
+        if(selectedSet.has(num)) selectedSet.delete(num);
+        else selectedSet.add(num);
+        renderFull();
+    }
+
+    function selectAll(bool) {
+        selectedSet.clear();
+        if(bool) db.forEach(p => selectedSet.add(p.num));
+        renderFull();
+    }
+
+    function updateMultiUI() {
+        const bar = document.getElementById('multi-bar');
+        bar.style.display = selectedSet.size > 0 ? 'flex' : 'none';
+        document.getElementById('select-count').innerText = `已選擇 ${selectedSet.size} 筆`;
+    }
+
+    function singleDel(num) { if(confirm(`確定刪除 ${num}?`)) { db = db.filter(x => x.num!==num); selectedSet.delete(num); saveDB(); } }
+
+    function deleteSelected() {
+        if(confirm(`確定刪除這 ${selectedSet.size} 筆項目?`)) {
+            db = db.filter(p => !selectedSet.has(p.num));
+            selectedSet.clear();
+            saveDB();
+        }
+    }
+
     async function openCam() {
-        document.getElementById('cam-overlay').style.display = 'block';
+        document.getElementById('cam-overlay').style.display='block';
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
             document.getElementById('video').srcObject = stream;
             initOCR();
-        } catch (err) {
-            alert("無法開啟相機，請確認是否授予權限或使用 HTTPS。");
-            closeCam();
-        }
+        } catch(e) { alert("無法開啟相機"); closeCam(); }
     }
-
     function closeCam() {
         const v = document.getElementById('video');
-        if(v.srcObject) v.srcObject.getTracks().forEach(t => t.stop());
-        document.getElementById('cam-overlay').style.display = 'none';
+        if(v.srcObject) v.srcObject.getTracks().forEach(t=>t.stop());
+        document.getElementById('cam-overlay').style.display='none';
     }
-
-    async function captureAndRecognize() {
+    async function captureOCR() {
         const video = document.getElementById('video');
         const canvas = document.getElementById('crop-canvas');
         const resText = document.getElementById('scan-result-text');
         const ctx = canvas.getContext('2d');
-        
-        resText.innerText = "辨識中，請稍候...";
-        
-        // 取得裁切框比例
+        resText.innerText = "辨識中...";
         const rect = document.getElementById('scan-rect').getBoundingClientRect();
         const scaleX = video.videoWidth / window.innerWidth;
         const scaleY = video.videoHeight / window.innerHeight;
-        
-        canvas.width = rect.width * scaleX;
-        canvas.height = rect.height * scaleY;
-        
+        canvas.width = rect.width * scaleX; canvas.height = rect.height * scaleY;
         ctx.drawImage(video, rect.left * scaleX, rect.top * scaleY, rect.width * scaleX, rect.height * scaleY, 0, 0, canvas.width, canvas.height);
-        
         try {
             const { data: { text } } = await worker.recognize(canvas);
             const cleanText = text.replace(/[^A-Z0-9]/g, "").toUpperCase().trim();
-            
             if (cleanText.length >= 4) {
                 const match = db.find(p => p.num.replace("-", "").toUpperCase() === cleanText);
                 resText.innerHTML = `結果：<span style="color:yellow">${cleanText}</span><br>${match ? '<span style="color:#00ff00">● 已授權</span>' : '<span style="color:#ff4444">✖ 未授權</span>'}`;
-                if(navigator.vibrate) navigator.vibrate(match ? 70 : 500);
-            } else {
-                resText.innerText = "偵測失敗，請對準車牌再試一次";
-            }
-        } catch (e) {
-            resText.innerText = "辨識引擎忙碌中";
-        }
+            } else { resText.innerText = "辨識失敗，請再試一次"; }
+        } catch (e) { resText.innerText = "辨識引擎忙碌中"; }
     }
-</script>
 
+    renderFull();
+</script>
 </body>
 </html>
