@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>車牌管理系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --primary: #6750A4;
+            --surface: #f3edf7;
+            --error: #B3261E;
+            --warning: #FF9800;
+            --warning-light: #FFF3E0;
+            --outline: #79747E;
+            --success: #2E7D32;
+            --forest-green: #2D6A4F;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        body { font-family: sans-serif; margin: 0; background: #f0f0f0; height: 100vh; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+        .phone-wrapper { width: 100%; max-width: 500px; height: 100%; background: #fff; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.1); position: relative; }
+        
+        .header { height: 60px; background: var(--surface); display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #ddd; flex-shrink: 0; position: relative; }
+        .header-title { font-weight: bold; font-size: 18px; z-index: 1; }
+        .header-btns { position: absolute; right: 10px; display: flex; gap: 6px; z-index: 2; }
+
+        .main-container { flex: 1; display: flex; flex-direction: column; padding: 10px; overflow: hidden; }
+        
+        .display-box { width: 100%; height: 50px; border: 2px solid var(--primary); border-radius: 8px; font-size: 24px; font-weight: bold; display: flex; align-items: center; padding: 0 12px; margin-bottom: 5px; background: #fff; }
+        .keyboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding-bottom: 10px; flex-shrink: 0; }
+        .btn { height: 42px; border: none; border-radius: 6px; font-size: 18px; font-weight: bold; background: #EADDFF; cursor: pointer; }
+        .btn.error { background: var(--error); color: white; }
+        .btn-search { grid-column: span 3; height: 48px; background: var(--primary); color: white; }
+        #search-status { font-size: 16px; font-weight: bold; text-align: center; min-height: 24px; margin-bottom: 8px; display: flex; justify-content: center; align-items: center; }
+
+        .input-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; background: var(--surface); padding: 12px; border-radius: 8px; flex-shrink: 0; }
+        .input-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .helper-text { font-size: 10px; color: #777; margin: -2px 0 2px 2px; }
+        input[type="text"]#in-plate { height: 50px; font-size: 18px; font-weight: bold; border: 2px solid var(--primary); flex: 1; min-width: 180px; padding: 0 10px; }
+        input[type="date"] { height: 40px; border: 1px solid #ccc; border-radius: 4px; padding: 0 10px; flex: 1; }
+
+        .tab-row { display: flex; border-bottom: 1px solid #eee; flex-shrink: 0; background: #fff; }
+        .tab { flex: 1; padding: 12px 5px; text-align: center; font-size: 13px; cursor: pointer; color: #666; display: flex; align-items: center; justify-content: center; gap: 3px; }
+        .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); font-weight: bold; }
+        .sort-arrow { font-size: 10px; opacity: 0.5; }
+        .active .sort-arrow { opacity: 1; }
+
+        /* 批次操作列 (三鍵同行) */
+        .batch-bar { display: none; gap: 6px; padding: 8px; background: #f9f9f9; border-bottom: 1px solid #eee; flex-shrink: 0; }
+        .batch-btn { flex: 1; height: 36px; border: 1px solid var(--primary); border-radius: 6px; background: #fff; color: var(--primary); font-size: 12px; font-weight: bold; cursor: pointer; }
+        .multi-del-btn { flex: 2; height: 36px; background: var(--error); color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
+
+        .list-area { flex: 1; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; background: #fafafa; }
+        .item-row { padding: 12px; border-bottom: 1px solid #eee; background: #fff; display: flex; align-items: center; gap: 12px; }
+        .item-row.expired { background-color: var(--warning-light); }
+        .item-info { flex: 1; min-width: 0; }
+        .plate-num { font-size: 17px; font-weight: bold; }
+        .plate-meta { font-size: 11px; color: #666; display: block; margin-top: 2px; }
+        
+        .check-circle { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--outline); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+        .check-circle.active { background: var(--primary); border-color: var(--primary); }
+        .check-circle.active::after { content: '✓'; color: white; font-weight: bold; }
+        .del-btn { color: var(--error); font-size: 13px; font-weight: bold; cursor: pointer; padding: 5px; }
+
+        .nav { height: 60px; background: var(--surface); display: flex; border-top: 1px solid #ddd; flex-shrink: 0; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: #79747E; cursor: pointer; }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+
+        #import-overlay, #cam-overlay { display: none; position: fixed; inset: 0; z-index: 100; }
+        #import-overlay { background: rgba(0,0,0,0.8); padding: 20px; flex-direction: column; justify-content: center; }
+        .import-box { background: white; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
+        #import-area { width: 100%; height: 280px; border: 1px solid #ccc; border-radius: 4px; padding: 10px; font-size: 13px; resize: none; font-family: monospace; }
+        #cam-overlay { background: #000; }
+        .scan-rect { position: absolute; top: 35%; left: 50%; transform: translate(-50%,-50%); width: 280px; height: 110px; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
+        .cam-controls { position: absolute; bottom: 50px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+
+        .text-red { color: var(--error); }
+        .text-orange-bold { color: var(--warning); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="phone-wrapper">
+    <div class="header">
+        <div class="header-title">車牌管理系統</div>
+        <div class="header-btns" id="manage-btns" style="display: none;">
+            <button style="background:var(--forest-green); color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer;" onclick="exportData()">匯出</button>
+            <button style="background:var(--forest-green); color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; cursor:pointer;" onclick="showImport()">匯入</button>
+        </div>
+    </div>
+
+    <div class="main-container" id="page-search">
+        <div class="display-box" id="num-display"></div>
+        <div id="search-status"></div>
+        <div class="list-area" id="search-results"></div>
+        <div class="keyboard">
+            <button class="btn" onclick="k('1')">1</button><button class="btn" onclick="k('2')">2</button><button class="btn" onclick="k('3')">3</button>
+            <button class="btn" onclick="k('4')">4</button><button class="btn" onclick="k('5')">5</button><button class="btn" onclick="k('6')">6</button>
+            <button class="btn" onclick="k('7')">7</button><button class="btn" onclick="k('8')">8</button><button class="btn" onclick="k('9')">9</button>
+            <button class="btn error" onclick="k('C')">C</button><button class="btn" onclick="k('0')">0</button><button class="btn error" onclick="k('B')">⌫</button>
+            <button class="btn btn-search" onclick="doSearch()">搜尋</button>
+        </div>
+    </div>
+
+    <div class="main-container" id="page-manage" style="display:none;">
+        <div class="input-form">
+            <input type="text" id="in-plate" placeholder="輸入車號 (多筆用逗號隔開)" oninput="this.value=this.value.toUpperCase()">
+            <div class="helper-text">Google表單合併公式 =TEXTJOIN(",", TRUE, A1:A10)</div>
+            <div class="input-row">
+                <span style="font-size:12px; font-weight:bold; color:#555;">到期日(非必選)</span>
+                <input type="date" id="in-expiry">
+                <button class="btn" style="background:var(--primary); color:white; padding:0 15px; height:40px;" onclick="addPlates()">新增</button>
+            </div>
+        </div>
+
+        <div class="tab-row">
+            <div class="tab active" id="tab-alpha" onclick="handleSort('alpha')">字母 <span id="arrow-alpha" class="sort-arrow">▲</span></div>
+            <div class="tab" id="tab-date" onclick="handleSort('date')">加入日 <span id="arrow-date" class="sort-arrow">▼</span></div>
+            <div class="tab" id="tab-expiry" onclick="handleSort('expiry')">到期日 <span id="arrow-expiry" class="sort-arrow">▲</span></div>
+        </div>
+
+        <div class="batch-bar" id="batch-control-bar">
+            <button class="batch-btn" onclick="selectAll(true)">全選</button>
+            <button class="batch-btn" onclick="selectAll(false)">全不選</button>
+            <button class="multi-del-btn" id="btn-multi-del" onclick="multiDel()">刪除已選項目 (0)</button>
+        </div>
+
+        <div class="list-area" id="full-list"></div>
+    </div>
+
+    <div class="nav">
+        <div class="nav-item" onclick="openCam()"><span>📷</span><span>掃描</span></div>
+        <div class="nav-item active" id="nav-search" onclick="switchPage('search')"><span>⌨️</span><span>搜尋</span></div>
+        <div class="nav-item" id="nav-manage" onclick="switchPage('manage')"><span>⚙️</span><span>管理</span></div>
+    </div>
+</div>
+
+<div id="import-overlay">
+    <div class="import-box">
+        <h3 style="margin:0; font-size:16px;">貼上備份資料</h3>
+        <textarea id="import-area" placeholder="在此處貼上包含 DATA: 的內容..."></textarea>
+        <div style="display:flex; gap:10px;">
+            <button class="btn" style="flex:1; background:var(--primary); color:white;" onclick="processImport()">確認匯入</button>
+            <button class="btn" style="flex:1; background:#eee;" onclick="hideImport()">取消</button>
+        </div>
+    </div>
+</div>
+
+<div id="cam-overlay">
+    <video id="video" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+    <div class="scan-rect" id="scan-rect"></div>
+    <div class="cam-controls">
+        <div id="scan-result-text" style="color:#fff; background:rgba(0,0,0,0.8); padding:8px 16px; border-radius:8px; text-align:center;">準備就緒</div>
+        <button onclick="captureOCR()" style="width:70px; height:70px; border-radius:50%; border:5px solid #fff; background:var(--error); cursor:pointer;"></button>
+        <button onclick="closeCam()" style="color:white; background:rgba(255,255,255,0.2); border:1px solid #fff; padding:8px 30px; border-radius:20px;">返回</button>
+    </div>
+    <canvas id="crop-canvas" style="display:none;"></canvas>
+</div>
+
+<script>
+    let db = JSON.parse(localStorage.getItem('plates_v5') || '[]');
+    let selectedSet = new Set();
+    let inputStr = "";
+    let currentSort = 'alpha';
+    let sortDir = { alpha: 1, date: -1, expiry: 1 }; 
+    let worker = null;
+
+    const fmtDate = (d) => {
+        if (!d) return null;
+        const dt = new Date(d);
+        return isNaN(dt) ? d : dt.toISOString().split('T')[0];
+    };
+
+    const getToday = () => fmtDate(new Date());
+
+    function saveDB() {
+        localStorage.setItem('plates_v5', JSON.stringify(db));
+        renderFull();
+    }
+
+    function generateItemHTML(p, showCheck = false) {
+        const today = getToday();
+        const isExp = p.expiry && p.expiry < today;
+        const isSelected = selectedSet.has(p.num);
+        const checkHTML = showCheck ? `<div class="check-circle ${isSelected?'active':''}" onclick="toggleItem('${p.num}')"></div>` : '';
+        const delHTML = showCheck ? `<span class="del-btn" onclick="singleDel('${p.num}')">刪除</span>` : '';
+        
+        return `
+            <div class="item-row ${isExp ? 'expired' : ''}">
+                ${checkHTML}
+                <div class="item-info">
+                    <span class="plate-num">${p.num} ${isExp ? '<span class="text-orange-bold">[到期]</span>' : ''}</span>
+                    <span class="plate-meta">加入: ${p.date} | <span class="text-red">到期: ${p.expiry || '無'}</span></span>
+                </div>
+                ${delHTML}
+            </div>`;
+    }
+
+    // --- 批次選取邏輯 ---
+    function toggleItem(num) {
+        if(selectedSet.has(num)) selectedSet.delete(num);
+        else selectedSet.add(num);
+        updateBatchUI();
+    }
+
+    function selectAll(shouldSelectAll) {
+        if(shouldSelectAll) {
+            db.forEach(p => selectedSet.add(p.num));
+        } else {
+            selectedSet.clear();
+        }
+        updateBatchUI();
+    }
+
+    function updateBatchUI() {
+        const delBtn = document.getElementById('btn-multi-del');
+        const bar = document.getElementById('batch-control-bar');
+        bar.style.display = selectedSet.size > 0 ? 'flex' : 'none';
+        delBtn.innerText = `刪除已選項目 (${selectedSet.size})`;
+        renderFull();
+    }
+
+    function multiDel() {
+        if(confirm(`確定要刪除這 ${selectedSet.size} 筆車號嗎？`)) {
+            db = db.filter(p => !selectedSet.has(p.num));
+            selectedSet.clear();
+            saveDB();
+            updateBatchUI();
+        }
+    }
+
+    // --- 排序邏輯 ---
+    function handleSort(type) {
+        if (currentSort === type) sortDir[type] *= -1;
+        else currentSort = type;
+        renderFull();
+    }
+
+    function renderFull() {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById(`tab-${currentSort}`).classList.add('active');
+        ['alpha', 'date', 'expiry'].forEach(t => {
+            document.getElementById(`arrow-${t}`).innerText = sortDir[t] === 1 ? '▲' : '▼';
+        });
+
+        let list = [...db];
+        list.sort((a, b) => {
+            let vA, vB;
+            if (currentSort === 'alpha') { vA = a.num; vB = b.num; }
+            else if (currentSort === 'date') { vA = a.date; vB = b.date; }
+            else { vA = a.expiry || '9999-12-31'; vB = b.expiry || '9999-12-31'; }
+            return vA.localeCompare(vB) * sortDir[currentSort];
+        });
+        document.getElementById('full-list').innerHTML = list.map(p => generateItemHTML(p, true)).join('');
+    }
+
+    // --- 搜尋邏輯 ---
+    function doSearch() {
+        if (!inputStr) return;
+        const res = db.filter(p => p.num.includes(inputStr));
+        const statusBox = document.getElementById('search-status');
+        if (res.length > 0) {
+            statusBox.innerHTML = `<span style="color:var(--success)">有 ${res.length} 筆符合</span>`;
+            document.getElementById('search-results').innerHTML = res.map(p => generateItemHTML(p, false)).join('');
+        } else {
+            statusBox.innerHTML = `<span style="color:var(--error)">查無資料</span>`;
+            document.getElementById('search-results').innerHTML = "";
+        }
+    }
+
+    // --- 匯入/匯出 (功能完整還原) ---
+    function exportData() {
+        if (db.length === 0) { alert("目前無資料可供匯出。"); return; }
+        const now = new Date().toLocaleString();
+        const exportObj = { backupDate: getToday(), data: db };
+        const exportStr = `車牌系統備份\n日期：${now}\n總計：${db.length} 筆\n--------------------------\nDATA:${JSON.stringify(exportObj, null, 2)}`;
+        navigator.clipboard.writeText(exportStr).then(() => {
+            alert(`✅ 已複製到剪貼簿！\n\n備份日期：${now}\n匯出筆數：${db.length} 筆`);
+        });
+    }
+
+    function showImport() { 
+        document.getElementById('import-area').value = ""; 
+        document.getElementById('import-overlay').style.display = 'flex'; 
+    }
+    function hideImport() { document.getElementById('import-overlay').style.display = 'none'; }
+
+    async function processImport() {
+        const text = document.getElementById('import-area').value;
+        try {
+            if (!text.includes('DATA:')) throw new Error();
+            const json = JSON.parse(text.split('DATA:')[1]);
+            const imported = json.data || [];
+            let addedCount = 0, overCount = 0, removedCount = 0;
+            let conflictPlates = [];
+
+            imported.forEach(newItem => {
+                newItem.date = fmtDate(newItem.date);
+                if (newItem.expiry) newItem.expiry = fmtDate(newItem.expiry);
+                const existingIndex = db.findIndex(x => x.num === newItem.num);
+                if (existingIndex === -1) { db.push(newItem); addedCount++; }
+                else {
+                    const existingItem = db[existingIndex];
+                    if (existingItem.date !== newItem.date || existingItem.expiry !== newItem.expiry) {
+                        conflictPlates.push({ index: existingIndex, newItem: newItem });
+                    }
+                }
+            });
+
+            if (conflictPlates.length > 0) {
+                if (confirm(`發現 ${conflictPlates.length} 筆車號內容與資料庫不符。\n\n按「確定」：覆蓋\n按「取消」：保留`)) {
+                    conflictPlates.forEach(c => { db[c.index] = c.newItem; overCount++; });
+                }
+            }
+
+            const importedSet = new Set(imported.map(x => x.num));
+            const extraPlates = db.filter(x => !importedSet.has(x.num));
+            if (extraPlates.length > 0) {
+                if (confirm(`⚠️ 同步檢查：\n發現有 ${extraPlates.length} 筆車號在「匯入檔中不存在」。\n\n是否清除資料庫中的多餘資料？`)) {
+                    removedCount = extraPlates.length;
+                    db = db.filter(x => importedSet.has(x.num));
+                }
+            }
+            saveDB();
+            alert(`✅ 匯入完成！\n\n新增：${addedCount} 筆\n覆蓋：${overCount} 筆\n清除：${removedCount} 筆`);
+            hideImport();
+        } catch(e) { alert("❌ 匯入失敗：格式錯誤。"); }
+    }
+
+    // --- 介面切換 ---
+    function switchPage(p) {
+        document.getElementById('page-search').style.display = p==='search'?'flex':'none';
+        document.getElementById('page-manage').style.display = p==='manage'?'flex':'none';
+        document.getElementById('manage-btns').style.display = p==='manage'?'flex':'none';
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.getElementById('nav-' + p).classList.add('active');
+        if(p==='manage') { selectedSet.clear(); updateBatchUI(); }
+    }
+
+    function k(v) {
+        if(v==='C') { inputStr = ""; document.getElementById('search-results').innerHTML = ""; document.getElementById('search-status').innerHTML = ""; }
+        else if(v==='B') inputStr = inputStr.slice(0,-1);
+        else if(inputStr.length < 10) inputStr += v;
+        document.getElementById('num-display').innerText = inputStr;
+    }
+
+    function addPlates() {
+        const raw = document.getElementById('in-plate').value.toUpperCase().trim();
+        const exp = document.getElementById('in-expiry').value;
+        if (!raw) return;
+        raw.split(/[,，\s]+/).forEach(p => {
+            if (p && !db.find(x => x.num === p)) {
+                db.push({ num: p, date: getToday(), expiry: exp ? fmtDate(exp) : null });
+            }
+        });
+        saveDB();
+        document.getElementById('in-plate').value = "";
+    }
+
+    function singleDel(n) { if(confirm(`確定刪除車號 ${n}?`)) { db = db.filter(x => x.num !== n); selectedSet.delete(n); saveDB(); updateBatchUI(); } }
+
+    // --- 相機功能 (完整還原) ---
+    async function openCam() {
+        document.getElementById('cam-overlay').style.display='block';
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+            document.getElementById('video').srcObject = stream;
+            if(!worker) {
+                worker = await Tesseract.createWorker('eng');
+                await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-' });
+            }
+        } catch(e) { alert("無法啟動相機"); closeCam(); }
+    }
+    function closeCam() {
+        const v = document.getElementById('video');
+        if(v.srcObject) v.srcObject.getTracks().forEach(t=>t.stop());
+        document.getElementById('cam-overlay').style.display='none';
+    }
+    async function captureOCR() {
+        const v = document.getElementById('video'), c = document.getElementById('crop-canvas'), resT = document.getElementById('scan-result-text');
+        const ctx = c.getContext('2d');
+        resT.innerText = "辨識中...";
+        const rect = document.getElementById('scan-rect').getBoundingClientRect();
+        const sX = v.videoWidth / window.innerWidth, sY = v.videoHeight / window.innerHeight;
+        c.width = rect.width * sX; c.height = rect.height * sY;
+        ctx.drawImage(v, rect.left*sX, rect.top*sY, rect.width*sX, rect.height*sY, 0, 0, c.width, c.height);
+        const { data: { text } } = await worker.recognize(c);
+        const clean = text.replace(/[^A-Z0-9]/g, "").trim();
+        if(clean.length >= 4) {
+            const match = db.find(x => x.num.replace("-","") === clean);
+            resT.innerHTML = `車號: ${clean} ${match ? '<br><span style="color:#0f0">● 已授權</span>' : '<br><span style="color:#f44">✖ 未授權</span>'}`;
+        } else { resT.innerText = "無法辨識，請對準車牌"; }
+    }
+
+    renderFull();
+</script>
+</body>
+</html>
