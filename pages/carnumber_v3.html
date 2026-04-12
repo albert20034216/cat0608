@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>車牌管理系統 V3</title>
+    <title>車牌管理系統V3</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
@@ -11,19 +11,18 @@
             --primary: #6750A4; --surface: #f3edf7; --error: #B3261E;
             --warning: #FF9800; --warning-light: #FFF3E0; --outline: #79747E;
             --success: #2E7D32; --forest-green: #2D6A4F;
+            --unknown: #3F51B5;
         }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
         body { font-family: sans-serif; margin: 0; background: #f0f0f0; height: 100vh; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
         .phone-wrapper { width: 100%; max-width: 500px; height: 100%; background: #fff; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.1); position: relative; }
         
-        /* Header */
         .header { height: 60px; background: var(--surface); display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #ddd; flex-shrink: 0; position: relative; }
         .header-title { font-weight: bold; font-size: 18px; }
         .header-btns { position: absolute; right: 10px; display: flex; gap: 6px; }
 
         .main-container { flex: 1; display: flex; flex-direction: column; padding: 10px; overflow: hidden; }
         
-        /* 搜尋介面 */
         .display-box { width: 100%; height: 50px; border: 2px solid var(--primary); border-radius: 8px; font-size: 24px; font-weight: bold; display: flex; align-items: center; padding: 0 12px; margin-bottom: 5px; background: #fff; }
         .keyboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding-bottom: 10px; flex-shrink: 0; }
         .btn { height: 42px; border: none; border-radius: 6px; font-size: 18px; font-weight: bold; background: #EADDFF; cursor: pointer; }
@@ -31,10 +30,9 @@
         .btn-search { grid-column: span 3; height: 48px; background: var(--primary); color: white; }
         #search-status { font-size: 16px; font-weight: bold; text-align: center; min-height: 24px; margin-bottom: 8px; }
 
-        /* 管理區域 */
-        .manage-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 10px; flex-shrink: 0; }
-        .count-text { font-size: 13px; font-weight: bold; color: var(--primary); }
-        .add-trigger-btn { flex: 1; height: 50px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .manage-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 5px; background: #fcfaff; border-radius: 8px; flex-shrink: 0; gap: 5px; }
+        .count-text { font-size: 12px; font-weight: bold; color: #444; flex: 1; }
+        .add-trigger-btn { padding: 8px 12px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap; }
 
         .tab-row { display: flex; border-bottom: 1px solid #eee; flex-shrink: 0; background: #fff; }
         .tab { flex: 1; padding: 12px 5px; text-align: center; font-size: 13px; cursor: pointer; color: #666; }
@@ -44,7 +42,6 @@
         .batch-btn { flex: 1; height: 36px; border: 1px solid var(--primary); border-radius: 6px; background: #fff; color: var(--primary); font-size: 12px; font-weight: bold; }
         .multi-del-btn { flex: 2; height: 36px; background: var(--error); color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 12px; }
 
-        /* 清單恢復 3 行設計 */
         .list-area { flex: 1; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; background: #fafafa; }
         .item-row { padding: 12px; border-bottom: 1px solid #eee; background: #fff; display: flex; align-items: center; gap: 10px; }
         .item-row.expired { background-color: var(--warning-light); }
@@ -52,31 +49,31 @@
         .plate-line-1 { font-size: 19px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
         .plate-line-2, .plate-line-3 { font-size: 12px; color: #555; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        .status-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .status-ok { background: #E8F5E9; color: var(--success); }
-        .status-bad { background: #FFEBEE; color: var(--error); }
+        .status-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: white; }
+        .st-正常 { background: var(--success); }
+        .st-不明 { background: var(--unknown); }
+        .st-欠費 { background: var(--error); }
 
         .check-circle { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--outline); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
         .check-circle.active { background: var(--primary); border-color: var(--primary); }
         .check-circle.active::after { content: '✓'; color: white; font-weight: bold; font-size: 14px; }
         .edit-btn { background: #fff; border: 1px solid var(--primary); color: var(--primary); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; }
 
-        /* 彈窗樣式 */
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; align-items: center; justify-content: center; padding: 15px; }
         .modal-content { background: white; width: 100%; max-width: 450px; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; max-height: 95vh; overflow: hidden; }
-        .modal-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
+        .modal-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
         .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .modal-field { display: flex; flex-direction: column; gap: 3px; }
         .modal-field label { font-size: 11px; font-weight: bold; color: #666; }
         .modal-input { border: 1px solid #ccc; border-radius: 6px; padding: 8px; font-size: 14px; width: 100%; }
         
-        /* 狀態按鈕組 */
         .status-group { display: flex; gap: 3px; width: 100%; }
         .status-opt { flex: 1; height: 34px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 11px; cursor: pointer; }
         .status-opt.active[data-val="正常"] { background: var(--success); color: white; border-color: var(--success); }
-        .status-opt.active:not([data-val="正常"]) { background: var(--error); color: white; border-color: var(--error); }
+        .status-opt.active[data-val="不明"] { background: var(--unknown); color: white; border-color: var(--unknown); }
+        .status-opt.active[data-val="欠費"] { background: var(--error); color: white; border-color: var(--error); }
 
-        .btn-del-action { width: 100%; height: 42px; background: var(--error); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; flex-shrink: 0; }
+        .btn-del-action { width: 100%; height: 42px; background: var(--error); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 
         .nav { height: 60px; background: var(--surface); display: flex; border-top: 1px solid #ddd; flex-shrink: 0; }
         .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: #79747E; cursor: pointer; }
@@ -86,14 +83,20 @@
         .scan-rect { position: absolute; top: 35%; left: 50%; transform: translate(-50%,-50%); width: 280px; height: 110px; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); }
         
         .text-red { color: var(--error); font-weight: bold; }
+        .text-green { color: var(--success); font-weight: bold; }
+        .text-blue { color: var(--unknown); font-weight: bold; }
         .text-orange-bold { color: var(--warning); font-weight: bold; font-size: 18px; }
+        .bold-val { font-weight: 800; color: #000; }
+
+        .import-section { border: 1px dashed #ccc; padding: 10px; border-radius: 8px; background: #fafafa; }
+        .import-label { font-size: 13px; font-weight: bold; color: var(--primary); margin-bottom: 8px; display: block; }
     </style>
 </head>
 <body>
 
 <div class="phone-wrapper">
     <div class="header">
-        <div class="header-title">車牌管理系統 V3</div>
+        <div class="header-title">車牌管理系統V3</div>
         <div class="header-btns" id="manage-btns" style="display: none;">
             <button style="background:var(--forest-green); color:white; border:none; padding:6px 10px; border-radius:4px; font-size:11px;" onclick="openIOModal('export')">匯出</button>
             <button style="background:var(--forest-green); color:white; border:none; padding:6px 10px; border-radius:4px; font-size:11px;" onclick="openIOModal('import')">匯入</button>
@@ -115,12 +118,12 @@
 
     <div class="main-container" id="page-manage" style="display:none;">
         <div class="manage-top">
-            <span class="count-text" id="total-count">目前共有 0 輛車</span>
+            <div class="count-text" id="total-count">讀取中...</div>
             <button class="add-trigger-btn" onclick="openModal('add')">+ 新增車輛</button>
         </div>
         <div class="tab-row">
             <div class="tab active" id="tab-alpha" onclick="handleSort('alpha')">車號 <span id="arr-alpha">▲</span></div>
-            <div class="tab" id="tab-date" onclick="handleSort('date')">建檔日 <span id="arr-date">▼</span></div>
+            <div class="tab" id="tab-status" onclick="handleSort('status')">狀態 <span id="arr-status">▼</span></div>
             <div class="tab" id="tab-expiry" onclick="handleSort('expiry')">到期日 <span id="arr-expiry">▲</span></div>
         </div>
         <div class="batch-bar" id="batch-control-bar">
@@ -185,15 +188,29 @@
             <button class="btn" style="flex:1; background:var(--forest-green); color:white; font-size:14px;" onclick="exportText()">文字匯出</button>
             <button class="btn" style="flex:1; background:var(--primary); color:white; font-size:14px;" onclick="exportExcel()">Excel匯出</button>
         </div>
-        <div id="io-import-options" style="display:none; flex-direction:column; gap:10px;">
-            <p style="font-size:11px; color:var(--error); margin:0;">* 匯入後將覆蓋舊有資料</p>
-            <textarea id="io-area" style="height:120px; padding:8px; font-size:12px;" placeholder="貼上文字內容..."></textarea>
-            <button class="btn" style="background:var(--primary); color:white; font-size:14px;" onclick="importText()">執行文字匯入</button>
-            <hr style="width:100%;">
-            <input type="file" id="io-file" accept=".xlsx, .xls">
-            <button class="btn" style="background:var(--forest-green); color:white; font-size:14px;" onclick="importExcel()">執行 Excel 匯入</button>
+        
+        <div id="io-import-options" style="display:none; flex-direction:column; gap:12px;">
+            <div style="background:#FFF1F0; border:1px solid #FFA39E; padding:8px; border-radius:6px; color:var(--error); font-size:12px; font-weight:bold;">
+                ⚠ 注意：匯入操作將會「清空原有資料庫」並以新資料完全覆蓋。
+            </div>
+
+            <div class="import-section">
+                <span class="import-label">方式一：文字快速匯入</span>
+                <textarea id="io-area" style="width:100%; height:80px; padding:8px; font-size:11px; border:1px solid #ddd; border-radius:4px;" placeholder="貼上 JSON 文字內容..."></textarea>
+                <button class="btn" style="width:100%; background:var(--primary); color:white; font-size:13px; height:36px; margin-top:5px;" onclick="importText()">執行文字匯入</button>
+            </div>
+
+            <div class="import-section">
+                <span class="import-label">方式二：Excel 檔案匯入 (分步驟)</span>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <button class="btn" style="background:#fff; border:1px solid var(--primary); color:var(--primary); font-size:13px; height:36px;" onclick="document.getElementById('io-file').click()">步驟 1：選擇 Excel 檔案</button>
+                    <input type="file" id="io-file" accept=".xlsx, .xls" style="display:none;" onchange="updateFileLabel()">
+                    <div id="file-name-display" style="font-size:11px; color:#888; text-align:center;">尚未選擇任何檔案</div>
+                    <button id="btn-do-import-excel" class="btn" style="background:var(--forest-green); color:white; font-size:14px; height:40px; opacity:0.5;" onclick="importExcel()" disabled>步驟 2：執行匯入覆蓋</button>
+                </div>
+            </div>
         </div>
-        <button class="btn" style="background:#eee; margin-top:5px;" onclick="closeIOModal()">關閉視窗</button>
+        <button class="btn" style="background:#eee; margin-top:5px;" onclick="closeIOModal()">取消並關閉</button>
     </div>
 </div>
 
@@ -209,8 +226,8 @@
 </div>
 
 <script>
-    let db = JSON.parse(localStorage.getItem('plates_v3_9') || '[]');
-    let selectedSet = new Set(), inputStr = "", currentSort = 'alpha', sortDir = { alpha: 1, date: -1, expiry: 1 }, worker = null;
+    let db = JSON.parse(localStorage.getItem('plates_v3') || '[]');
+    let selectedSet = new Set(), inputStr = "", currentSort = 'alpha', sortDir = { alpha: 1, status: 1, expiry: 1 }, worker = null;
 
     const labelMap = { num:"車號", owner:"車主", identity:"身分", phone:"電話", brand:"品牌", color:"顏色", expiry:"到期日", date:"建檔日", remark:"備註", status:"狀態" };
     const revMap = { "車號":"num", "車主":"owner", "身分":"identity", "電話":"phone", "品牌":"brand", "顏色":"color", "到期日":"expiry", "建檔日":"date", "備註":"remark", "狀態":"status" };
@@ -219,9 +236,15 @@
     const isExpired = (expiryStr) => expiryStr ? expiryStr <= getToday() : false;
 
     function saveDB() {
-        localStorage.setItem('plates_v3_9', JSON.stringify(db));
-        document.getElementById('total-count').innerText = `目前共有 ${db.length} 輛車`;
+        localStorage.setItem('plates_v3', JSON.stringify(db));
+        updateStats();
         renderFull();
+    }
+
+    function updateStats() {
+        const counts = { '正常': 0, '欠費': 0, '不明': 0 };
+        db.forEach(p => counts[p.status || '正常']++);
+        document.getElementById('total-count').innerHTML = `共計 <span style="font-size:14px; font-weight:800;">${db.length}</span> 輛車 (<span class="text-green">${counts['正常']}輛正常</span>，<span class="text-red">${counts['欠費']}輛欠費</span>，<span class="text-blue">${counts['不明']}輛不明</span>)`;
     }
 
     function setStatus(val) {
@@ -229,22 +252,25 @@
         document.querySelectorAll('.status-opt').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === val));
     }
 
-    function generateItemHTML(p, showManage = false) {
+    function generateItemHTML(p, showCheck = false) {
         const expired = isExpired(p.expiry);
+        const st = p.status || '正常';
+        const hasRemark = p.remark && p.remark.trim() !== "";
         const val = (v, label) => (v && v.trim() !== "") ? v : `無${label}`;
-        const stClass = p.status === '正常' ? 'status-ok' : 'status-bad';
+        const bVal = (v, label) => (v && v.trim() !== "") ? `<span class="bold-val">${v}</span>` : `無${label}`;
+        
         return `
             <div class="item-row ${expired ? 'expired' : ''}">
-                ${showManage ? `<div class="check-circle ${selectedSet.has(p.num)?'active':''}" onclick="toggleSelect('${p.num}')"></div>` : ''}
+                ${showCheck ? `<div class="check-circle ${selectedSet.has(p.num)?'active':''}" onclick="toggleSelect('${p.num}')"></div>` : ''}
                 <div class="item-info">
                     <div class="plate-line-1">
                         ${p.num} ${expired ? '<span class="text-orange-bold">[到期]</span>' : ''}
-                        <span class="status-badge ${stClass}">${p.status || '正常'}</span>
+                        <span class="status-badge st-${st}">${st}</span>
                     </div>
-                    <div class="plate-line-2">建檔: ${val(p.date, '日')} | 到期: <span class="${expired?'text-red':''}">${val(p.expiry, '日')}</span> | ${val(p.brand, '品牌')} | ${val(p.color, '顏色')}</div>
-                    <div class="plate-line-3">${val(p.owner, '車主')} | ${val(p.identity, '身分')} | ${val(p.phone, '電話')} | ${val(p.remark, '備註')}</div>
+                    <div class="plate-line-2">建檔: ${val(p.date, '日')} | 到期: <span class="${expired?'text-red':''}">${val(p.expiry, '日')}</span> | ${bVal(p.brand, '品牌')} | ${bVal(p.color, '顏色')}</div>
+                    <div class="plate-line-3">${val(p.owner, '車主')} | ${val(p.identity, '身分')} | ${val(p.phone, '電話')} | <span style="${hasRemark?'color:var(--error); font-weight:bold;':''}">${val(p.remark, '備註')}</span></div>
                 </div>
-                ${showManage ? `<button class="edit-btn" onclick="openModal('edit', '${p.num}')">編輯</button>` : ''}
+                <button class="edit-btn" onclick="openModal('edit', '${p.num}')">編輯</button>
             </div>`;
     }
 
@@ -270,15 +296,25 @@
                 document.getElementById('m-phone').value = data.phone || "";
                 document.getElementById('m-brand').value = data.brand || "";
                 document.getElementById('m-color').value = data.color || "";
-                document.getElementById('m-expiry').value = data.expiry || "";
                 document.getElementById('m-remark').value = data.remark || "";
                 setStatus(data.status || '正常');
+                
+                // 核心修正：避開 ISOString 時區偏移問題
+                if(data.expiry) {
+                    const d = new Date(data.expiry);
+                    if(!isNaN(d.getTime())) {
+                        const yyyy = d.getFullYear();
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        document.getElementById('m-expiry').value = `${yyyy}-${mm}-${dd}`;
+                    }
+                }
             }
             document.getElementById('modal-del-btn').style.display = "block";
-            document.getElementById('modal-title').innerText = "編輯車輛資料";
+            document.getElementById('modal-title').innerText = "編輯車牌資料";
         } else {
             document.getElementById('modal-del-btn').style.display = "none";
-            document.getElementById('modal-title').innerText = "新增車輛";
+            document.getElementById('modal-title').innerText = "新增車牌";
         }
         document.getElementById('plate-modal').style.display = "flex";
     }
@@ -287,28 +323,31 @@
         const old = document.getElementById('edit-old-num').value, num = document.getElementById('m-num').value.toUpperCase().trim();
         if(!num) return;
         const info = { num, owner:document.getElementById('m-owner').value, identity:document.getElementById('m-identity').value, phone:document.getElementById('m-phone').value, brand:document.getElementById('m-brand').value, color:document.getElementById('m-color').value, expiry:document.getElementById('m-expiry').value||null, remark:document.getElementById('m-remark').value, status:document.getElementById('m-status').value };
-        if(old) { const idx = db.findIndex(x => x.num === old); if(idx !== -1) db[idx] = { ...db[idx], ...info }; }
+        if(old) { const idx = db.findIndex(x => x.num === old); if(idx !== -1) db[idx] = { ...db[idx], ...info, date: db[idx].date }; }
         else { if(db.some(x => x.num === num)) return alert("重複"); db.push({ ...info, date: getToday() }); }
-        saveDB(); closeModal();
+        saveDB(); closeModal(); if(inputStr) doSearch();
     }
-    function deleteCurrent() { const n = document.getElementById('edit-old-num').value; if(confirm(`確定刪除 ${n}?`)) { db = db.filter(x => x.num !== n); selectedSet.delete(n); saveDB(); updateBatchUI(); closeModal(); } }
+    function deleteCurrent() { const n = document.getElementById('edit-old-num').value; if(confirm(`確定刪除 ${n}?`)) { db = db.filter(x => x.num !== n); selectedSet.delete(n); saveDB(); updateBatchUI(); closeModal(); if(inputStr) doSearch(); } }
 
     function handleSort(t) { if (currentSort === t) sortDir[t] *= -1; else currentSort = t; renderFull(); }
+    const getStWeight = (s) => s === '欠費' ? 3 : (s === '不明' ? 2 : 1);
+
     function renderFull() {
         document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-'+currentSort));
-        ['alpha', 'date', 'expiry'].forEach(k => document.getElementById('arr-' + k).innerText = sortDir[k] === 1 ? '▲' : '▼');
+        ['alpha', 'status', 'expiry'].forEach(k => document.getElementById('arr-' + k).innerText = sortDir[k] === 1 ? '▲' : '▼');
         let list = [...db].sort((a,b) => {
-            let vA = currentSort==='alpha'?a.num:(currentSort==='date'?a.date:(a.expiry||'9999-12-31'));
-            let vB = currentSort==='alpha'?b.num:(currentSort==='date'?b.date:(b.expiry||'9999-12-31'));
-            return vA.localeCompare(vB) * sortDir[currentSort];
+            if (currentSort === 'alpha') return a.num.localeCompare(b.num) * sortDir.alpha;
+            if (currentSort === 'status') {
+                const wA = getStWeight(a.status), wB = getStWeight(b.status);
+                return (wA !== wB) ? (wA - wB) * sortDir.status : a.num.localeCompare(b.num);
+            }
+            if (currentSort === 'expiry') {
+                const eA = a.expiry || '9999-99-99', eB = b.expiry || '9999-99-99';
+                return (eA !== eB) ? eA.localeCompare(eB) * sortDir.expiry : a.num.localeCompare(b.num);
+            }
+            return 0;
         });
         document.getElementById('full-list').innerHTML = list.map(p => generateItemHTML(p, true)).join('');
-    }
-
-    // 匯出通知
-    function alertResult(type) {
-        const now = new Date().toLocaleString();
-        alert(`匯出成功！ (${type})\n時間: ${now}\n總筆數: ${db.length} 筆`);
     }
 
     function exportText() {
@@ -317,12 +356,10 @@
             Object.keys(labelMap).forEach(k => n[labelMap[k]] = item[k] || "");
             return n;
         });
-        const now = new Date().toLocaleString();
-        const header = `// 車牌管理系統備份\n// 匯出時間: ${now}\n// 資料筆數: ${db.length} 筆\n\n`;
+        const now = new Date();
+        const header = `// [車牌管理系統V3] 備份\n// 匯出時間: ${now.toLocaleString()}\n// 資料筆數: ${db.length} 筆\n\n`;
         const s = header + `DATA:${JSON.stringify(exportData, null, 2)}`;
-        navigator.clipboard.writeText(s).then(() => {
-            alertResult("文字複製");
-        });
+        navigator.clipboard.writeText(s).then(() => alert(`文字匯出成功！已自動複製到剪貼簿。\n時間: ${now.toLocaleString()}\n總筆數: ${db.length} 筆`));
     }
 
     function exportExcel() {
@@ -332,33 +369,50 @@
             return n;
         });
         const ws = XLSX.utils.json_to_sheet(data);
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        for(let R = range.s.r; R <= range.e.r; ++R) {
-            for(let C = range.s.c; C <= range.e.c; ++C) {
-                const cell = ws[XLSX.utils.encode_cell({r:R, c:C})];
-                if(cell) cell.z = '@'; 
-            }
-        }
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Data");
+        ws['!autofilter'] = { ref: ws['!ref'] };
         const now = new Date();
-        const ts = now.getFullYear() + (now.getMonth()+1).toString().padStart(2,'0') + now.getDate().toString().padStart(2,'0') + "_" + now.getHours().toString().padStart(2,'0') + now.getMinutes().toString().padStart(2,'0') + now.getSeconds().toString().padStart(2,'0');
-        XLSX.writeFile(wb, `車牌資料_${ts}.xlsx`);
-        alertResult("Excel 檔案");
+        const rocYear = now.getFullYear() - 1911;
+        const fileName = `車牌資料_民國${rocYear}年${now.getMonth()+1}月${now.getDate()}日_${now.getHours()}時${now.getMinutes()}分_匯出.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        alert(`Excel 匯出成功！\n檔名: ${fileName}\n總筆數: ${db.length} 筆`);
     }
 
     function openIOModal(mode) {
+        if(mode === 'import') {
+            document.getElementById('io-area').value = "";
+            document.getElementById('io-file').value = "";
+            updateFileLabel();
+        }
         document.getElementById('io-modal').style.display = 'flex';
-        document.getElementById('io-title').innerText = mode === 'export' ? '匯出資料庫' : '匯入資料庫';
+        document.getElementById('io-title').innerText = mode === 'export' ? '匯出資料庫' : '匯入資料庫 (覆蓋模式)';
         document.getElementById('io-export-options').style.display = mode === 'export' ? 'flex' : 'none';
         document.getElementById('io-import-options').style.display = mode === 'import' ? 'flex' : 'none';
-        document.getElementById('io-area').value = "";
     }
     function closeIOModal() { document.getElementById('io-modal').style.display = 'none'; }
+
+    function updateFileLabel() {
+        const file = document.getElementById('io-file').files[0];
+        const display = document.getElementById('file-name-display');
+        const btn = document.getElementById('btn-do-import-excel');
+        if(file) {
+            display.innerText = `已選取：${file.name}`;
+            display.style.color = "var(--primary)";
+            btn.disabled = false;
+            btn.style.opacity = "1";
+        } else {
+            display.innerText = "尚未選擇任何檔案";
+            display.style.color = "#888";
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+        }
+    }
 
     function importText() {
         try {
             const raw = document.getElementById('io-area').value;
+            if(!raw.trim()) return;
             let data = JSON.parse(raw.includes('DATA:') ? raw.split('DATA:')[1] : raw);
             if (data.length > 0 && data[0]["車號"]) {
                 data = data.map(row => {
@@ -367,8 +421,10 @@
                     return n;
                 });
             }
-            if(confirm("即將覆蓋並匯入？")) { db = data; saveDB(); closeIOModal(); }
-        } catch(e) { alert("格式錯誤"); }
+            if(confirm(`成功抓取到 ${data.length} 筆車牌資料。\n確定執行匯入？此操作將會清空現有資料庫！`)) { 
+                db = data; saveDB(); closeIOModal(); 
+            }
+        } catch(e) { alert("文字格式錯誤，請檢查內容是否完整。"); }
     }
 
     function importExcel() {
@@ -376,33 +432,42 @@
         if(!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
-            const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
-            const raw = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            const cleaned = raw.map(row => {
-                let n = {};
-                Object.keys(revMap).forEach(cn => {
-                    const foundKey = Object.keys(row).find(rk => rk.trim() === cn);
-                    n[revMap[cn]] = foundKey ? String(row[foundKey]).trim() : "";
+            try {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                const raw = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                const cleaned = raw.map(row => {
+                    let n = {};
+                    Object.keys(revMap).forEach(cn => {
+                        const foundKey = Object.keys(row).find(rk => rk.trim() === cn);
+                        n[revMap[cn]] = foundKey ? String(row[foundKey]).trim() : "";
+                    });
+                    return n;
                 });
-                return n;
-            });
-            if(confirm("即將覆蓋並匯入？")) { db = cleaned; saveDB(); closeIOModal(); }
+                if(confirm(`Excel 讀取成功，共抓取到 ${cleaned.length} 筆車牌資料。\n確定執行匯入並覆蓋現有資料庫嗎？`)) { 
+                    db = cleaned; saveDB(); closeIOModal(); 
+                }
+            } catch(err) { alert("Excel 解析失敗，請確認檔案內容格式。"); }
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // 搜尋功能
     function doSearch() {
-        const res = db.filter(p => p.num.includes(inputStr));
-        document.getElementById('search-status').innerHTML = res.length > 0 ? `<span style="color:var(--success)">有 ${res.length} 筆符合</span>` : `<span style="color:var(--error)">查無資料</span>`;
+        const res = db.filter(p => p.num.includes(inputStr)).sort((a,b) => a.num.localeCompare(b.num));
+        document.getElementById('search-status').innerHTML = res.length > 0 ? `<span style="color:var(--success)">有 ${res.length} 筆符合</span>` : (inputStr ? `<span style="color:var(--error)">查無資料</span>` : "");
         document.getElementById('search-results').innerHTML = inputStr ? res.map(p => generateItemHTML(p, false)).join('') : "";
     }
+    
     function k(v) {
-        if(v==='C') { inputStr = ""; document.getElementById('search-results').innerHTML = ""; }
+        if(v==='C') { 
+            inputStr = ""; 
+            document.getElementById('search-results').innerHTML = ""; 
+            document.getElementById('search-status').innerHTML = "";
+        }
         else if(v==='B') inputStr = inputStr.slice(0,-1);
         else if(inputStr.length < 10) inputStr += v;
         document.getElementById('num-display').innerText = inputStr;
     }
+
     function switchPage(p) {
         document.getElementById('page-search').style.display = p==='search'?'flex':'none';
         document.getElementById('page-manage').style.display = p==='manage'?'flex':'none';
@@ -440,7 +505,7 @@
         if(clean.length >= 4) {
             const m = db.find(x => x.num.replace("-","") === clean);
             resT.innerHTML = `車號: ${clean} ${m ? '<br><span style="color:#0f0">● 已授權</span>' : '<br><span style="color:#f44">✖ 未授權</span>'}`;
-        } else resT.innerText = "請重試";
+        } else resT.innerText = "辨識模糊";
     }
 
     saveDB();
