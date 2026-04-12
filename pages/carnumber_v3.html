@@ -47,7 +47,7 @@
         .item-row.expired { background-color: var(--warning-light); }
         .item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
         .plate-line-1 { font-size: 19px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
-        .plate-line-2, .plate-line-3 { font-size: 12px; color: #555; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .plate-line-info { font-size: 12px; color: #555; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         .status-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: white; }
         .st-正常 { background: var(--success); }
@@ -235,6 +235,12 @@
     const getToday = () => new Date().toISOString().split('T')[0];
     const isExpired = (expiryStr) => expiryStr ? expiryStr <= getToday() : false;
 
+    // 日期顯示格式化函數 (yyyy-mm-dd -> yyyy/mm/dd)
+    function formatDateDisplay(s) {
+        if(!s || s.trim() === "") return "";
+        return s.replace(/-/g, '/');
+    }
+
     function saveDB() {
         localStorage.setItem('plates_v3', JSON.stringify(db));
         updateStats();
@@ -267,8 +273,9 @@
                         ${p.num} ${expired ? '<span class="text-orange-bold">[到期]</span>' : ''}
                         <span class="status-badge st-${st}">${st}</span>
                     </div>
-                    <div class="plate-line-2">建檔: ${val(p.date, '日')} | 到期: <span class="${expired?'text-red':''}">${val(p.expiry, '日')}</span> | ${bVal(p.brand, '品牌')} | ${bVal(p.color, '顏色')}</div>
-                    <div class="plate-line-3">${val(p.owner, '車主')} | ${val(p.identity, '身分')} | ${val(p.phone, '電話')} | <span style="${hasRemark?'color:var(--error); font-weight:bold;':''}">${val(p.remark, '備註')}</span></div>
+                    <div class="plate-line-info">建檔: ${formatDateDisplay(val(p.date, '日'))} | 到期: <span class="${expired?'text-red':''}">${formatDateDisplay(val(p.expiry, '日'))}</span></div>
+                    <div class="plate-line-info">${val(p.owner, '車主')} | ${val(p.identity, '身分')} | ${val(p.phone, '電話')}</div>
+                    <div class="plate-line-info">${bVal(p.brand, '品牌')} | ${bVal(p.color, '顏色')} | <span style="${hasRemark?'color:var(--error); font-weight:bold;':''}">${val(p.remark, '備註')}</span></div>
                 </div>
                 <button class="edit-btn" onclick="openModal('edit', '${p.num}')">編輯</button>
             </div>`;
@@ -299,7 +306,6 @@
                 document.getElementById('m-remark').value = data.remark || "";
                 setStatus(data.status || '正常');
                 
-                // 核心修正：避開 ISOString 時區偏移問題
                 if(data.expiry) {
                     const d = new Date(data.expiry);
                     if(!isNaN(d.getTime())) {
